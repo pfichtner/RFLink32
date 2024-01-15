@@ -8,7 +8,7 @@
 #include "../7_Utils.h"
 
 #define PLUGIN_077_ID "Avantek"
-#define PLUGIN_077_DEBUG
+//#define PLUGIN_077_DEBUG
 
 // could we use the function defined in 7_Utils?
 inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
