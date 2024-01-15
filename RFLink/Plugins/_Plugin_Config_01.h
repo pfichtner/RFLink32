@@ -82,6 +82,7 @@
 #define PLUGIN_073 // Deltronic doorbell
 #define PLUGIN_074 // RL02
 #define PLUGIN_075 // Silvercrest
+#define PLUGIN_077 // Avantek
 // -------------------
 // Smoke detectors / Fire Places
 // -------------------
