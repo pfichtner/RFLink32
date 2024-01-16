@@ -90,6 +90,7 @@ boolean Plugin_077(byte function, const char *string)
       #endif
       return false;
    }
+   pulseIndex += (35 * 2);
 
    const size_t buflen = sizeof(PLUGIN_077_ID ": packet = ") + 5 * 2 + 1;
    char printbuf[buflen];
@@ -98,10 +99,9 @@ boolean Plugin_077(byte function, const char *string)
 
    display_Header();
    display_Name(PLUGIN_077_ID);
-   display_IDn(42, 4);
-   display_SWITCH(1);
-   display_CMD(CMD_Single, CMD_On); // #ALL #ON
-   display_CHIME(1);
+   char c_ID[5 * 2 + 1];
+   sprintf(c_ID, "%02x%02x%02x%02x%02x", packet[0], packet[1], packet[2], packet[3], packet[4]);
+   display_IDc(c_ID);
    display_Footer();
    //==================================================================================
    RawSignal.Repeats = true; // suppress repeats of the same RF packet
