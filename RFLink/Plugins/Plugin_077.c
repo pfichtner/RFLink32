@@ -111,10 +111,104 @@ boolean Plugin_077(byte function, const char *string)
 #endif //PLUGIN_077
 
 #ifdef PLUGIN_TX_077
+#include "../1_Radio.h"
+#include "../2_Signal.h"
+#include "../3_Serial.h"
+#include <stdlib.h>
+
+/**
+ * Convert Hex character to Hex value
+ **/
+byte hexchar2hexvalue(char c)
+{
+   if ((c>='0') && (c<='9'))
+      return c-'0' ;
+   if ((c>='A') && (c<='F'))
+      return c+10-'A' ;
+   if ((c>='a') && (c<='f'))
+      return c+10-'a' ;
+   return -1 ;
+}
+
+bool* convertToBinary(const char* hex, size_t* resultSize) {
+    size_t len = strlen(hex);
+    *resultSize = len * 4; // Each hex char is represented by 4 bits
+
+    bool* binaryResult = (bool*)malloc(*resultSize * sizeof(bool));
+
+    if (binaryResult == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t index = 0;
+
+    for (size_t i = 0; i < len; i++) {
+        char hexChar = hex[i];
+        int hexValue = hexchar2hexvalue(hexChar);
+
+        for (int j = 3; j >= 0; j--) {
+            bool bit = (hexValue >> j) & 1;
+            binaryResult[index++] = bit;
+        }
+    }
+
+    return binaryResult;
+}
+
+void send(boolean state)
+{
+   digitalWrite(Radio::pins::TX_DATA, state ? HIGH : LOW);
+   // TODO use AVTK_PulseDuration
+   delayMicroseconds(480);
+}
+
+size_t preambleSize;
+size_t syncWordSize;
+bool* preamble = convertToBinary("aaaa", &preambleSize);
+bool* syncWord = convertToBinary("caca5353", &syncWordSize);
 
 boolean PluginTX_077(byte function, const char *string)
 {
-   // not yet supported
+   //10;AVENTEK;71f1100080
+   //012345678901234567890
+   if (strncasecmp(InputBuffer_Serial + 3, "AVANTEK;", 8) == 0) {
+		short times = 3;
+		char* address = InputBuffer_Serial + 3 + 8;
+
+		noInterrupts();
+
+		for (int i = 0; i < preambleSize; i++) {
+			send(preamble[i]);
+		}
+
+		for (int i = 0; i < syncWordSize; i++) {
+			send(syncWord[i]);
+		}
+
+		for (int count = 0; count < times; count++) {
+			for (size_t i = 0; i < strlen(address); i++) {
+				char hexChar = address[i];
+				int hexValue = hexchar2hexvalue(hexChar);
+
+				for (int j = 3; j >= 0; j--) {
+					bool bit = (hexValue >> j) & 1;
+					if (bit) {
+						send(true);
+						send(false);
+						send(false);
+					} else {
+						send(true);
+						send(true);
+						send(false);
+					}
+				}
+			}
+		}
+		interrupts();
+
+      return true;
+	}
    return false;
 }
 
