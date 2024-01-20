@@ -10,6 +10,8 @@
 #define PLUGIN_077_ID "Avantek"
 //#define PLUGIN_077_DEBUG
 
+const u_int16_t AVTK_PulseDuration = 480;
+
 // could we use the function defined in 7_Utils?
 inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
 {
@@ -18,7 +20,6 @@ inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
 
 boolean Plugin_077(byte function, const char *string)
 {
-   const u_int16_t AVTK_PulseDuration = 480;
    const u_int16_t AVTK_PulseMinDuration = AVTK_PulseDuration - 60;
    const u_int16_t AVTK_PulseMaxDuration = AVTK_PulseDuration + 100;
    const u_short AVTK_SyncWordCount = 8;
@@ -156,11 +157,10 @@ bool* convertToBinary(const char* hex, size_t* resultSize) {
     return binaryResult;
 }
 
-void send(boolean state)
+inline void send(boolean state)
 {
    digitalWrite(Radio::pins::TX_DATA, state ? HIGH : LOW);
-   // TODO use AVTK_PulseDuration
-   delayMicroseconds(480);
+   delayMicroseconds(AVTK_PulseDuration);
 }
 
 size_t preambleSize;
