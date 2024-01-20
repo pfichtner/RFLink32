@@ -178,15 +178,25 @@ boolean PluginTX_077(byte function, const char *string)
 
 		noInterrupts();
 
-		for (int i = 0; i < preambleSize; i++) {
+      #ifdef PLUGIN_077_DEBUG
+      Serial.println(F(PLUGIN_077_ID ": Sending preamble"));
+      #endif
+		for (u_int i = 0; i < preambleSize; i++) {
 			send(preamble[i]);
 		}
 
-		for (int i = 0; i < syncWordSize; i++) {
+      #ifdef PLUGIN_077_DEBUG
+      Serial.println(F(PLUGIN_077_ID ": Sending syncword"));
+      #endif
+		for (u_int i = 0; i < syncWordSize; i++) {
 			send(syncWord[i]);
 		}
 
-		for (int count = 0; count < times; count++) {
+		for (u_short count = 0; count < times; count++) {
+         #ifdef PLUGIN_077_DEBUG
+         Serial.print(F(PLUGIN_077_ID ": Sending payload "));
+         Serial.print(address);
+         #endif
 			for (size_t i = 0; i < strlen(address); i++) {
 				char hexChar = address[i];
 				int hexValue = hexchar2hexvalue(hexChar);
