@@ -168,10 +168,12 @@ boolean Plugin_077(byte function, const char *string)
    }
    pulseIndex += (35 * 2);
 
+   #ifdef PLUGIN_077_DEBUG
    const size_t buflen = sizeof(PLUGIN_077_ID ": packet = ") + 5 * 2 + 1;
    char printbuf[buflen];
    snprintf(printbuf, buflen, "%s%02x%02x%02x%02x%02x", PLUGIN_077_ID ": packet = ", packet[0], packet[1], packet[2], packet[3], packet[4]);
    SerialDebugPrintln(printbuf);
+   #endif
 
    display_Header();
    display_Name(PLUGIN_077_ID);
