@@ -18,6 +18,81 @@ inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
     return (value > min && value < max);
 }
 
+/**
+ * Convert Hex character to Hex value
+ **/
+byte hexchar2hexvalue(char c)
+{
+   if ((c>='0') && (c<='9'))
+      return c-'0' ;
+   if ((c>='A') && (c<='F'))
+      return c+10-'A' ;
+   if ((c>='a') && (c<='f'))
+      return c+10-'a' ;
+   return -1 ;
+}
+
+bool* convertToBinary(const char* hex, size_t* resultSize)
+{
+    size_t len = strlen(hex);
+    *resultSize = len * 4; // Each hex char is represented by 4 bits
+
+    bool* binaryResult = (bool*)malloc(*resultSize * sizeof(bool));
+
+    if (binaryResult == NULL)
+    {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t index = 0;
+
+    for (size_t i = 0; i < len; i++)
+    {
+        char hexChar = hex[i];
+        int hexValue = hexchar2hexvalue(hexChar);
+
+        for (int j = 3; j >= 0; j--)
+        {
+            bool bit = (hexValue >> j) & 1;
+            binaryResult[index++] = bit;
+        }
+    }
+
+    return binaryResult;
+}
+
+/**
+ * IN: 1,1,0,0,1,0,1,0,1,1,0,0,1,0,1,0,0,1,0,1,0,0,1,1,0,1,0,1,0,0,1,1
+ * (grouped): 11 00 1 0 1 0 11 00 1 0 1 00 1 0 1 00 11 0 1 0 1 00 11
+ * OUT: 2,2,1,1,1,1,2,2,1,1,1,2,1,1,1,2,2,1,1,1,1,2,2
+*/
+size_t* countConsecutive(bool* binaryArray, size_t size, size_t* resultSize) {
+    size_t* consecutiveCounts = (size_t*)malloc(size * sizeof(size_t));
+
+    if (consecutiveCounts == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t count = 1;
+    size_t index = 0;
+
+    for (size_t i = 1; i < size; i++) {
+        if (binaryArray[i] == binaryArray[i - 1]) {
+            count++;
+        } else {
+            consecutiveCounts[index++] = count;
+            count = 1;
+        }
+    }
+
+    consecutiveCounts[index] = count;
+    *resultSize = index + 1;
+
+    return consecutiveCounts;
+}
+
 boolean Plugin_077(byte function, const char *string)
 {
    const u_int16_t AVTK_PulseMinDuration = AVTK_PulseDuration - 60;
@@ -25,11 +100,11 @@ boolean Plugin_077(byte function, const char *string)
    const u_short AVTK_SyncWordCount = 8;
    const u_short AVTK_MinSyncPairs = 5;
 
-   // HEX: 0xcaca5353
-   // BIN: 11001010110010100101001101010011
-   // BIN (grouped): 11 00 1 0 1 0 11 00 1 0 1 00 1 0 1 00 11 0 1 0 1 00 11
-   const u_short highLowLengths[23] = { 2, 2, 1, 1, 1, 1, 2, 2, 1, 1, 1, 2, 1, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2 };
-   const u_short highLowLengthsSize = sizeof(highLowLengths) / sizeof(highLowLengths[0]);
+   size_t syncWordSize;
+   bool* syncWord = convertToBinary("caca5353", &syncWordSize);
+   size_t highLowLengthsSize;
+   size_t* highLowLengths = countConsecutive(syncWord, syncWordSize, &highLowLengthsSize);
+   free(syncWord);
    const bool sequenceEndsWithHigh = highLowLengthsSize % 2 != 0;
 
    int pulseIndex = 1;
@@ -54,7 +129,7 @@ boolean Plugin_077(byte function, const char *string)
       return false;
    }
 
-   for (int i = 0; i < highLowLengthsSize; i++) {
+   for (size_t i = 0; i < highLowLengthsSize; i++) {
       if (pulseIndex >= RawSignal.Number) {
          #ifdef PLUGIN_077_DEBUG
          Serial.println(F(PLUGIN_077_ID ": Sync word not complete"));
@@ -116,46 +191,6 @@ boolean Plugin_077(byte function, const char *string)
 #include "../2_Signal.h"
 #include "../3_Serial.h"
 #include <stdlib.h>
-
-/**
- * Convert Hex character to Hex value
- **/
-byte hexchar2hexvalue(char c)
-{
-   if ((c>='0') && (c<='9'))
-      return c-'0' ;
-   if ((c>='A') && (c<='F'))
-      return c+10-'A' ;
-   if ((c>='a') && (c<='f'))
-      return c+10-'a' ;
-   return -1 ;
-}
-
-bool* convertToBinary(const char* hex, size_t* resultSize) {
-    size_t len = strlen(hex);
-    *resultSize = len * 4; // Each hex char is represented by 4 bits
-
-    bool* binaryResult = (bool*)malloc(*resultSize * sizeof(bool));
-
-    if (binaryResult == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    size_t index = 0;
-
-    for (size_t i = 0; i < len; i++) {
-        char hexChar = hex[i];
-        int hexValue = hexchar2hexvalue(hexChar);
-
-        for (int j = 3; j >= 0; j--) {
-            bool bit = (hexValue >> j) & 1;
-            binaryResult[index++] = bit;
-        }
-    }
-
-    return binaryResult;
-}
 
 inline void send(boolean state)
 {
