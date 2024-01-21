@@ -103,7 +103,7 @@ boolean Plugin_077(byte function, const char *string)
    size_t syncWordSize;
    bool* syncWord = convertToBinary("caca5353", &syncWordSize);
    size_t highLowLengthsSize;
-   size_t* highLowLengths = countConsecutive(syncWord, syncWordSize, &highLowLengthsSize);
+   const size_t* highLowLengths = countConsecutive(syncWord, syncWordSize, &highLowLengthsSize);
    free(syncWord);
    const bool sequenceEndsWithHigh = highLowLengthsSize % 2 != 0;
 
@@ -205,7 +205,7 @@ bool* syncWord = convertToBinary("caca5353", &syncWordSize);
 
 boolean PluginTX_077(byte function, const char *string)
 {
-   //10;AVENTEK;71f1100080
+   //10;AVANTEK;71f1100080
    //012345678901234567890
    if (strncasecmp(InputBuffer_Serial + 3, "AVANTEK;", 8) == 0) {
 		short times = 3;
@@ -216,18 +216,18 @@ boolean PluginTX_077(byte function, const char *string)
       #ifdef PLUGIN_077_DEBUG
       Serial.println(F(PLUGIN_077_ID ": Sending preamble"));
       #endif
-		for (u_int i = 0; i < preambleSize; i++) {
-			send(preamble[i]);
-		}
-
-      #ifdef PLUGIN_077_DEBUG
-      Serial.println(F(PLUGIN_077_ID ": Sending syncword"));
-      #endif
-		for (u_int i = 0; i < syncWordSize; i++) {
-			send(syncWord[i]);
-		}
-
 		for (u_short count = 0; count < times; count++) {
+         for (u_int i = 0; i < preambleSize; i++) {
+            send(preamble[i]);
+         }
+
+         #ifdef PLUGIN_077_DEBUG
+         Serial.println(F(PLUGIN_077_ID ": Sending syncword"));
+         #endif
+         for (u_int i = 0; i < syncWordSize; i++) {
+            send(syncWord[i]);
+         }
+
          #ifdef PLUGIN_077_DEBUG
          Serial.print(F(PLUGIN_077_ID ": Sending payload "));
          Serial.print(address);
@@ -249,6 +249,8 @@ boolean PluginTX_077(byte function, const char *string)
 					}
 				}
 			}
+         // TODO introduce new constant
+         delayMicroseconds(5 * AVTK_PulseDuration);
 		}
 		interrupts();
 
