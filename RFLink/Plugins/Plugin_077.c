@@ -1,6 +1,6 @@
 #define AVANTEK_PLUGIN_ID 077
 #define PLUGIN_DESC_077 "Avantek doorbells"
-#define SerialDebugActivated
+// #define SerialDebugActivated
 
 #ifdef PLUGIN_077
 #include "../4_Display.h"
@@ -12,10 +12,10 @@
 
 const u_int16_t AVTK_PulseDuration = 480;
 
-// could we use the function defined in 7_Utils?
+// TODO why can't  we use the function defined in 7_Utils?
 inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
 {
-    return (value > min && value < max);
+    return ((value > min) && (value < max));
 }
 
 /**
@@ -23,12 +23,12 @@ inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
  **/
 byte hexchar2hexvalue(char c)
 {
-   if ((c>='0') && (c<='9'))
-      return c-'0' ;
-   if ((c>='A') && (c<='F'))
-      return c+10-'A' ;
-   if ((c>='a') && (c<='f'))
-      return c+10-'a' ;
+   if ((c >= '0') && (c <= '9'))
+      return c - '0';
+   if ((c >= 'A') && (c <= 'F'))
+      return c - 'A' + 10;
+   if ((c >= 'a') && (c <= 'f'))
+      return c - 'a' + 10;
    return -1 ;
 }
 
@@ -168,7 +168,7 @@ boolean Plugin_077(byte function, const char *string)
    }
    pulseIndex += (35 * 2);
 
-   #ifdef PLUGIN_077_DEBUG
+   #ifdef SerialDebugActivated
    const size_t buflen = sizeof(PLUGIN_077_ID ": packet = ") + 5 * 2 + 1;
    char printbuf[buflen];
    snprintf(printbuf, buflen, "%s%02x%02x%02x%02x%02x", PLUGIN_077_ID ": packet = ", packet[0], packet[1], packet[2], packet[3], packet[4]);
