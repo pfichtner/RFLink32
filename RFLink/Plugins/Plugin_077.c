@@ -122,14 +122,21 @@ boolean Plugin_077(byte function, const char *string)
       pulseIndex += 2;
    }
 
-   if (preamblePairsFound < AVTK_MinSyncPairs) {
-      #ifdef PLUGIN_077_DEBUG
-      Serial.println(F(PLUGIN_077_ID ": Preamble not found"));
-      #endif
+   #ifdef PLUGIN_077_DEBUG
+   if (preamblePairsFound > 0) 
+   {
+      Serial.print(F(PLUGIN_077_ID ": "));
+      Serial.print(preamblePairsFound);
+      Serial.println(F(" preamble pairs found"));
+   }
+   #endif      
+   if (preamblePairsFound < AVTK_MinSyncPairs) 
+   {
       return false;
    }
 
-   for (size_t i = 0; i < highLowLengthsSize; i++) {
+   for (size_t i = 0; i < highLowLengthsSize; i++) 
+   {
       if (pulseIndex >= RawSignal.Number) {
          #ifdef PLUGIN_077_DEBUG
          Serial.println(F(PLUGIN_077_ID ": Sync word not complete"));
@@ -143,7 +150,8 @@ boolean Plugin_077(byte function, const char *string)
       boolean syncWordMatch = i < (highLowLengthsSize - 1) 
          ? value_between(pulse, min, max) 
          : pulse > mul * AVTK_PulseMinDuration;
-      if (!syncWordMatch) {
+      if (!syncWordMatch) 
+      {
          #ifdef PLUGIN_077_DEBUG
          Serial.print(F(PLUGIN_077_ID ": Sync word mismatch at: "));
          Serial.println(pulseIndex);
@@ -151,8 +159,12 @@ boolean Plugin_077(byte function, const char *string)
          return false;
       }
    }
+   #ifdef PLUGIN_077_DEBUG
+   Serial.println(F(PLUGIN_077_ID ": Sync word complete"));
+   #endif
 
-   if (sequenceEndsWithHigh) {
+   if (sequenceEndsWithHigh) 
+   {
       RawSignal.Pulses[pulseIndex - 1] = RawSignal.Pulses[pulseIndex - 1]
             - highLowLengths[highLowLengthsSize - 1] * AVTK_PulseDuration;
    }
@@ -160,7 +172,8 @@ boolean Plugin_077(byte function, const char *string)
    byte packet[] = { 0, 0, 0, 0, 0 };
 
    if (!decode_pwm(packet, 35, RawSignal.Pulses, RawSignal.Number, pulseIndex, AVTK_PulseMinDuration,
-         AVTK_PulseMaxDuration, 2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration, 0)) {
+         AVTK_PulseMaxDuration, 2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration, 0)) 
+   {
       #ifdef PLUGIN_077_DEBUG
       Serial.println(F(PLUGIN_077_ID ": Avantek: PWM decoding failed"));
       #endif
