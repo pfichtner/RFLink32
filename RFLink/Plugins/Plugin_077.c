@@ -10,7 +10,10 @@
 #define PLUGIN_077_ID "Avantek"
 //#define PLUGIN_077_DEBUG
 
-const u_int16_t AVTK_PulseDuration = 480;
+#define AVTK_PULSE_DURATION_MID_D 480
+#define AVTK_PULSE_DURATION_MIN_D 380
+#define AVTK_PULSE_DURATION_MAX_D 580
+
 
 // TODO why can't  we use the function defined in 7_Utils?
 inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
@@ -95,10 +98,12 @@ size_t* countConsecutive(bool* binaryArray, size_t size, size_t* resultSize) {
 
 boolean Plugin_077(byte function, const char *string)
 {
-   const u_int16_t AVTK_PulseMinDuration = AVTK_PulseDuration - 60;
-   const u_int16_t AVTK_PulseMaxDuration = AVTK_PulseDuration + 100;
-   const u_short AVTK_SyncWordCount = 8;
+   const u_int16_t AVTK_PulseDuration = AVTK_PULSE_DURATION_MID_D / RawSignal.Multiply;
+   const u_int16_t AVTK_PulseMinDuration = AVTK_PULSE_DURATION_MIN_D / RawSignal.Multiply;
+   const u_int16_t AVTK_PulseMaxDuration = AVTK_PULSE_DURATION_MAX_D / RawSignal.Multiply;
+   const u_short AVTK_SyncPairsCount = 8;
    const u_short AVTK_MinSyncPairs = 5;
+   // const u_short AVTK_MinSyncPairs = static_cast<u_short>(AVTK_SyncPairsCount / RawSignal.Multiply);
 
    size_t syncWordSize;
    bool* syncWord = convertToBinary("caca5353", &syncWordSize);
@@ -107,16 +112,20 @@ boolean Plugin_077(byte function, const char *string)
    free(syncWord);
    const bool sequenceEndsWithHigh = highLowLengthsSize % 2 != 0;
 
-   int pulseIndex = 1;
+   if (RawSignal.Number <= (int)(2 * AVTK_SyncPairsCount + syncWordSize))
+   {
+      return false;
+   }
+
    // Check for preamble (0xaaaa)
+   int pulseIndex = 1;
    u_short preamblePairsFound = 0;
-   while (pulseIndex < (RawSignal.Number - 1) && (preamblePairsFound < AVTK_SyncWordCount)) {
+   while (pulseIndex <= 2 * AVTK_SyncPairsCount - 1) {
       if (value_between(RawSignal.Pulses[pulseIndex], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)
             && value_between(RawSignal.Pulses[pulseIndex + 1], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)) {
          preamblePairsFound++;
       } else if (preamblePairsFound > 0) {
-         // if we didn't already had a match, we ignore as mismatch, otherwise we break
-         // here
+         // if we didn't already had a match, we ignore as mismatch, otherwise we break here
          break;
       }
       pulseIndex += 2;
@@ -127,7 +136,9 @@ boolean Plugin_077(byte function, const char *string)
    {
       Serial.print(F(PLUGIN_077_ID ": "));
       Serial.print(preamblePairsFound);
-      Serial.println(F(" preamble pairs found"));
+      Serial.print(F(" preamble pairs found ("));
+      Serial.print(AVTK_MinSyncPairs);
+      Serial.println(F(" needed)"));
    }
    #endif      
    if (preamblePairsFound < AVTK_MinSyncPairs) 
@@ -137,6 +148,7 @@ boolean Plugin_077(byte function, const char *string)
 
    for (size_t i = 0; i < highLowLengthsSize; i++) 
    {
+      // already checked but should not harm to much to check again here
       if (pulseIndex >= RawSignal.Number) {
          #ifdef PLUGIN_077_DEBUG
          Serial.println(F(PLUGIN_077_ID ": Sync word not complete"));
@@ -165,8 +177,11 @@ boolean Plugin_077(byte function, const char *string)
 
    if (sequenceEndsWithHigh) 
    {
-      RawSignal.Pulses[pulseIndex - 1] = RawSignal.Pulses[pulseIndex - 1]
-            - highLowLengths[highLowLengthsSize - 1] * AVTK_PulseDuration;
+      // end of sync word (HIGH) and start of payload (HIGH) are merged
+      // 480 0 959 0 962 <- if sync word ends with high, we subtract one pulse (962 - 480). 
+      // The remaining 478 remains as payload
+      pulseIndex--;
+      RawSignal.Pulses[pulseIndex] = RawSignal.Pulses[pulseIndex] - highLowLengths[highLowLengthsSize - 1] * AVTK_PulseDuration;
    }
 
    byte packet[] = { 0, 0, 0, 0, 0 };
@@ -210,7 +225,7 @@ boolean Plugin_077(byte function, const char *string)
 inline void send(boolean state)
 {
    digitalWrite(Radio::pins::TX_DATA, state ? HIGH : LOW);
-   delayMicroseconds(AVTK_PulseDuration);
+   delayMicroseconds(AVTK_PULSE_DURATION_MID_D);
 }
 
 size_t preambleSize;
@@ -264,8 +279,8 @@ boolean PluginTX_077(byte function, const char *string)
 					}
 				}
 			}
-         // TODO introduce new constant
-         delayMicroseconds(5 * AVTK_PulseDuration);
+         // TODO introduce as constant
+         delayMicroseconds(5 * AVTK_PULSE_DURATION_MID_D);
 		}
 		interrupts();
 
