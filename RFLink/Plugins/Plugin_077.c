@@ -23,8 +23,7 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
   if (*pulseIndex + (expectedBitCount - 1) * 2 > pulsesCount) {
 #ifdef MANCHESTER_DEBUG
     Serial.printf(
-        "MANCHESTER_DEBUG: Not enough pulses: *pulseIndex = %d - "
-        "expectedBitCount = %d - pulsesCount = %d - min required pulses = %d\n",
+        F("MANCHESTER_DEBUG: Not enough pulses: *pulseIndex = %d - expectedBitCount = %d - pulsesCount = %d - min required pulses = %d\n"),
         *pulseIndex, expectedBitCount, pulsesCount,
         *pulseIndex + expectedBitCount * 2);
 #endif
@@ -53,7 +52,7 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                !value_between(bitDuration1, shortPulseMinDuration,
                                shortPulseMaxDuration)) {
 #ifdef MANCHESTER_DEBUG
-      Serial.printf("MANCHESTER_DEBUG: Invalid duration at pulse %d - bit %d: %d\n",
+      Serial.printf(F("MANCHESTER_DEBUG: Invalid duration at pulse %d - bit %d: %d\n"),
              *pulseIndex, bitIndex,
              bitDuration0 * RFLink::Signal::RawSignal.Multiply);
 #endif
@@ -129,7 +128,7 @@ bool* convertToBinary(const char* hex, size_t* resultSize)
 
     if (binaryResult == NULL)
     {
-        Serial.printf("Memory allocation failed\n");
+        Serial.printf(PLUGIN_077_ID ": Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -191,13 +190,13 @@ boolean Plugin_077(byte function, const char *string)
 
     if (preamblePairsFound < AVTK_MinSyncPairs) {
 #ifdef PLUGIN_077_DEBUG
-      Serial.printf("Preamble not found (%i < %i)\n", preamblePairsFound,
+      Serial.printf(PLUGIN_077_ID ": Preamble not found (%i < %i)\n", preamblePairsFound,
              AVTK_MinSyncPairs);
 #endif
       return oneMessageProcessed;
     }
 #ifdef PLUGIN_077_DEBUG
-    Serial.printf("Preamble found (%i >= %i)\n", preamblePairsFound,
+    Serial.printf(PLUGIN_077_ID ": Preamble found (%i >= %i)\n", preamblePairsFound,
            AVTK_MinSyncPairs);
 #endif
 
@@ -206,13 +205,13 @@ boolean Plugin_077(byte function, const char *string)
                     AVTK_PULSE_DURATION_MID_D, 8 * syncwordLength);
     if (!bitsProccessed) {
 #ifdef PLUGIN_077_DEBUG
-      Serial.printf("Error on syncword decode\n");
+      Serial.printf(PLUGIN_077_ID ": Error on syncword decode\n");
 #endif
       return oneMessageProcessed;
     }
 
 #ifdef PLUGIN_077_DEBUG
-    Serial.printf("Syncword 0x");
+    Serial.printf(PLUGIN_077_ID ": Syncword 0x");
     for (size_t i = 0; i < syncwordLength; i++) {
       Serial.printf("%02X", syncwordChars[i]);
     }
@@ -246,14 +245,14 @@ boolean Plugin_077(byte function, const char *string)
 
     if (!decodeResult) {
 #ifdef PLUGIN_077_DEBUG
-      Serial.printf("Could not decode address manchester data\n");
+      Serial.printf(PLUGIN_077_ID ": Could not decode address manchester data\n");
 #endif
       return oneMessageProcessed;
     }
 #ifdef PLUGIN_077_DEBUG
-    Serial.printf("Address (lsb): %02x %02x %02x %02x\n", address[0], address[1],
+    Serial.printf(PLUGIN_077_ID ": Address (lsb): %02x %02x %02x %02x\n", address[0], address[1],
            address[2], address[3]);
-    Serial.printf("pulseIndex is %i\n", pulseIndex);
+    Serial.printf(PLUGIN_077_ID ": pulseIndex is %i\n", pulseIndex);
 #endif
 
     byte buttons[] = { 0 };
@@ -263,14 +262,14 @@ boolean Plugin_077(byte function, const char *string)
                            0, true)) {
 #ifdef PLUGIN_077_DEBUG
 #endif
-      Serial.printf("Could not decode buttons manchester data\n");
+      Serial.printf(PLUGIN_077_ID ": Could not decode buttons manchester data\n");
       return oneMessageProcessed;
     }
 // TODO we would have to shift back the result because we shifted it too much to
 // the left because we think that everything has 8 bits
 #ifdef PLUGIN_077_DEBUG
-    Serial.printf("Buttons: %02x\n", buttons[0]);
-    Serial.printf("pulseIndex is %i\n", pulseIndex);
+    Serial.printf(PLUGIN_077_ID ": Buttons: %02x\n", buttons[0]);
+    Serial.printf(PLUGIN_077_ID ": pulseIndex is %i\n", pulseIndex);
 #endif
 
     // pulseIndex += 7; // CRC
@@ -284,12 +283,12 @@ boolean Plugin_077(byte function, const char *string)
     }
 
 #ifdef PLUGIN_077_DEBUG
-    Serial.printf("remaining ");
+    Serial.printf(PLUGIN_077_ID ": remaining ");
     for (int i = 0; i < remainingPulsesCount; i++) {
       Serial.printf("%i ", remaining[i]);
     }
     Serial.printf("\n");
-    Serial.printf("pulseIndex is %i\n", pulseIndex);
+    Serial.printf(PLUGIN_077_ID ": pulseIndex is %i\n", pulseIndex);
 #endif
 
    display_Header();
@@ -334,25 +333,25 @@ boolean PluginTX_077(byte function, const char *string)
 
 		noInterrupts();
 
-      #ifdef PLUGIN_077_DEBUG
-      Serial.println(F(PLUGIN_077_ID ": Sending preamble"));
-      #endif
+#ifdef PLUGIN_077_DEBUG
+    Serial.println(F(PLUGIN_077_ID ": Sending preamble"));
+#endif
 		for (u_short count = 0; count < times; count++) {
          for (u_int i = 0; i < preambleSize; i++) {
             send(preamble[i]);
          }
 
-         #ifdef PLUGIN_077_DEBUG
+#ifdef PLUGIN_077_DEBUG
          Serial.println(F(PLUGIN_077_ID ": Sending syncword"));
-         #endif
+#endif
          for (u_int i = 0; i < syncWordSize; i++) {
             send(syncWord[i]);
          }
 
-         #ifdef PLUGIN_077_DEBUG
+#ifdef PLUGIN_077_DEBUG
          Serial.print(F(PLUGIN_077_ID ": Sending payload "));
          Serial.print(address);
-         #endif
+#endif
 			for (size_t i = 0; i < strlen(address); i++) {
 				char hexChar = address[i];
 				int hexValue = hexchar2hexvalue(hexChar);
@@ -375,10 +374,9 @@ boolean PluginTX_077(byte function, const char *string)
 		}
 		interrupts();
 
-      return true;
+    return true;
 	}
    return false;
 }
 
 #endif //PLUGIN_TX_077
-
