@@ -1,6 +1,5 @@
 #define AVANTEK_PLUGIN_ID 077
 #define PLUGIN_DESC_077 "Avantek doorbells"
-// #define SerialDebugActivated
 
 #ifdef PLUGIN_077
 #include "../4_Display.h"
@@ -8,22 +7,106 @@
 #include "../7_Utils.h"
 
 #define PLUGIN_077_ID "Avantek"
-//#define PLUGIN_077_DEBUG
+// #define PLUGIN_077_DEBUG
 
 #define AVTK_PULSE_DURATION_MID_D 480
 #define AVTK_PULSE_DURATION_MIN_D 380
 #define AVTK_PULSE_DURATION_MAX_D 580
 
+bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
+                       uint16_t const pulses[], const int pulsesCount,
+                       int *pulseIndex, uint16_t shortPulseMinDuration,
+                       uint16_t shortPulseMaxDuration,
+                       uint16_t longPulseMinDuration,
+                       uint16_t longPulseMaxDuration, uint8_t bitOffset,
+                       bool lsb) {
+  if (*pulseIndex + (expectedBitCount - 1) * 2 > pulsesCount) {
+#ifdef MANCHESTER_DEBUG
+    Serial.printf(
+        "MANCHESTER_DEBUG: Not enough pulses: *pulseIndex = %d - "
+        "expectedBitCount = %d - pulsesCount = %d - min required pulses = %d\n",
+        *pulseIndex, expectedBitCount, pulsesCount,
+        *pulseIndex + expectedBitCount * 2);
+#endif
+    return false;
+  }
 
-// TODO why can't  we use the function defined in 7_Utils?
-inline bool value_between(uint16_t value, uint16_t min, uint16_t max)
-{
-    return ((value > min) && (value < max));
+  // TODO we could add parameter "bitsPerByte"
+  const uint8_t bitsPerByte = 8;
+  const uint8_t endBitCount = expectedBitCount + bitOffset;
+
+  for (uint8_t bitIndex = bitOffset; bitIndex < endBitCount; bitIndex++) {
+    int currentFrameByteIndex = bitIndex / bitsPerByte;
+    uint16_t bitDuration0 = pulses[*pulseIndex];
+    uint16_t bitDuration1 = pulses[*pulseIndex + 1];
+
+    // TODO we could add parameter of manchester/inversed manchester
+    if (value_between(bitDuration0, shortPulseMinDuration,
+                       shortPulseMaxDuration) &&
+        value_between(bitDuration1, longPulseMinDuration,
+                       longPulseMaxDuration)) {
+      uint8_t offset = bitIndex % bitsPerByte;
+      frame[currentFrameByteIndex] |=
+          1 << (lsb ? offset : (bitsPerByte - 1 - offset));
+    } else if (!value_between(bitDuration0, longPulseMinDuration,
+                               longPulseMaxDuration) ||
+               !value_between(bitDuration1, shortPulseMinDuration,
+                               shortPulseMaxDuration)) {
+#ifdef MANCHESTER_DEBUG
+      Serial.printf("MANCHESTER_DEBUG: Invalid duration at pulse %d - bit %d: %d\n",
+             *pulseIndex, bitIndex,
+             bitDuration0 * RFLink::Signal::RawSignal.Multiply);
+#endif
+      return false; // unexpected bit duration, invalid format
+    }
+
+    *pulseIndex += 2;
+  }
+
+  return true;
 }
 
-/**
- * Convert Hex character to Hex value
- **/
+// TODO why can't  we use the function defined in 7_Utils?
+inline bool value_between(uint16_t value, uint16_t min, uint16_t max) {
+  return ((value > min) && (value < max));
+}
+
+inline bool isLowPulseIndex(const int pulseIndex) { return (pulseIndex % 2 == 1); }
+
+uint8_t decode_bits(uint8_t frame[], const uint16_t *pulses,
+                    const size_t pulsesCount, int *pulseIndex,
+                    uint16_t pulseDuration, size_t bitsToRead) {
+  size_t bitsRead = 0;
+
+  for (size_t i = 0; *pulseIndex + i < pulsesCount && bitsRead < bitsToRead;
+       i++, (*pulseIndex)++) {
+    size_t bits =
+        (size_t)((pulses[*pulseIndex] + (pulseDuration / 2)) / pulseDuration);
+
+    for (size_t j = 0; j < bits; j++) {
+      frame[bitsRead / 8] <<= 1;
+      frame[bitsRead / 8] |= i % 2 == 0;
+      bitsRead++;
+      if (bitsRead >= bitsToRead) {
+        return j + 1;
+      }
+    }
+  }
+
+  // Check if there are enough bits read
+  return bitsRead >= bitsToRead ? 0 : -1;
+}
+
+bool checkSyncWord(const unsigned char synword[], const unsigned char pattern[], size_t length) {
+  for (size_t i = 0; i < length; i++) {
+    if (synword[i] != pattern[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// TX
 byte hexchar2hexvalue(char c)
 {
    if ((c >= '0') && (c <= '9'))
@@ -35,6 +118,8 @@ byte hexchar2hexvalue(char c)
    return -1 ;
 }
 
+
+// TX
 bool* convertToBinary(const char* hex, size_t* resultSize)
 {
     size_t len = strlen(hex);
@@ -44,7 +129,7 @@ bool* convertToBinary(const char* hex, size_t* resultSize)
 
     if (binaryResult == NULL)
     {
-        fprintf(stderr, "Memory allocation failed\n");
+        Serial.printf("Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -65,39 +150,13 @@ bool* convertToBinary(const char* hex, size_t* resultSize)
     return binaryResult;
 }
 
-/**
- * IN: 1,1,0,0,1,0,1,0,1,1,0,0,1,0,1,0,0,1,0,1,0,0,1,1,0,1,0,1,0,0,1,1
- * (grouped): 11 00 1 0 1 0 11 00 1 0 1 00 1 0 1 00 11 0 1 0 1 00 11
- * OUT: 2,2,1,1,1,1,2,2,1,1,1,2,1,1,1,2,2,1,1,1,1,2,2
-*/
-size_t* countConsecutive(bool* binaryArray, size_t size, size_t* resultSize) {
-    size_t* consecutiveCounts = (size_t*)malloc(size * sizeof(size_t));
-
-    if (consecutiveCounts == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    size_t count = 1;
-    size_t index = 0;
-
-    for (size_t i = 1; i < size; i++) {
-        if (binaryArray[i] == binaryArray[i - 1]) {
-            count++;
-        } else {
-            consecutiveCounts[index++] = count;
-            count = 1;
-        }
-    }
-
-    consecutiveCounts[index] = count;
-    *resultSize = index + 1;
-
-    return consecutiveCounts;
-}
-
 boolean Plugin_077(byte function, const char *string)
 {
+   if (RawSignal.Number == 0)
+   {
+      return false;
+   }
+
    const u_int16_t AVTK_PulseDuration = AVTK_PULSE_DURATION_MID_D / RawSignal.Multiply;
    const u_int16_t AVTK_PulseMinDuration = AVTK_PULSE_DURATION_MIN_D / RawSignal.Multiply;
    const u_int16_t AVTK_PulseMaxDuration = AVTK_PULSE_DURATION_MAX_D / RawSignal.Multiply;
@@ -105,114 +164,146 @@ boolean Plugin_077(byte function, const char *string)
    const u_short AVTK_MinSyncPairs = 5;
    // const u_short AVTK_MinSyncPairs = static_cast<u_short>(AVTK_SyncPairsCount / RawSignal.Multiply);
 
-   size_t syncWordSize;
-   bool* syncWord = convertToBinary("caca5353", &syncWordSize);
-   size_t highLowLengthsSize;
-   const size_t* highLowLengths = countConsecutive(syncWord, syncWordSize, &highLowLengthsSize);
-   free(syncWord);
-   const bool sequenceEndsWithHigh = highLowLengthsSize % 2 != 0;
+  const int syncWordSize = 8;
+  unsigned char syncwordChars[] = {0xCA, 0xCA, 0x53, 0x53};
+  size_t syncwordLength = sizeof(syncwordChars) / sizeof(syncwordChars[0]);
+  uint8_t synword[syncwordLength];
 
-   if (RawSignal.Number <= (int)(2 * AVTK_SyncPairsCount + syncWordSize))
-   {
-      return false;
-   }
+  int pulseIndex = 1;
+  bool oneMessageProcessed = false;
 
-   // Check for preamble (0xaaaa)
-   int pulseIndex = 1;
-   u_short preamblePairsFound = 0;
-   while (pulseIndex <= 2 * AVTK_SyncPairsCount - 1) {
-      if (value_between(RawSignal.Pulses[pulseIndex], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)
-            && value_between(RawSignal.Pulses[pulseIndex + 1], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)) {
-         preamblePairsFound++;
+  while (pulseIndex + (int)(2 * AVTK_SyncPairsCount + syncWordSize) <
+         RawSignal.Number) {
+    u_short preamblePairsFound = 0;
+    for (size_t i = 0; i < AVTK_SyncPairsCount; i++) {
+      if (value_between(RawSignal.Pulses[pulseIndex], AVTK_PulseMinDuration,
+                        AVTK_PulseMaxDuration) &&
+          value_between(RawSignal.Pulses[pulseIndex + 1], AVTK_PulseMinDuration,
+                        AVTK_PulseMaxDuration)) {
+        preamblePairsFound++;
       } else if (preamblePairsFound > 0) {
-         // if we didn't already had a match, we ignore as mismatch, otherwise we break here
-         break;
+        // if we didn't already had a match, we ignore as mismatch, otherwise we
+        // break here
+        break;
       }
       pulseIndex += 2;
-   }
+    }
 
-   #ifdef PLUGIN_077_DEBUG
-   if (preamblePairsFound > 0) 
-   {
-      Serial.print(F(PLUGIN_077_ID ": "));
-      Serial.print(preamblePairsFound);
-      Serial.print(F(" preamble pairs found ("));
-      Serial.print(AVTK_MinSyncPairs);
-      Serial.println(F(" needed)"));
-   }
-   #endif      
-   if (preamblePairsFound < AVTK_MinSyncPairs) 
-   {
-      return false;
-   }
+    if (preamblePairsFound < AVTK_MinSyncPairs) {
+#ifdef PLUGIN_077_DEBUG
+      Serial.printf("Preamble not found (%i < %i)\n", preamblePairsFound,
+             AVTK_MinSyncPairs);
+#endif
+      return oneMessageProcessed;
+    }
+#ifdef PLUGIN_077_DEBUG
+    Serial.printf("Preamble found (%i >= %i)\n", preamblePairsFound,
+           AVTK_MinSyncPairs);
+#endif
 
-   for (size_t i = 0; i < highLowLengthsSize; i++) 
-   {
-      // already checked but should not harm to much to check again here
-      if (pulseIndex >= RawSignal.Number) {
-         #ifdef PLUGIN_077_DEBUG
-         Serial.println(F(PLUGIN_077_ID ": Sync word not complete"));
-         #endif
-         return false;
-      }
-      uint16_t pulse = RawSignal.Pulses[pulseIndex++];
-      u_short mul = highLowLengths[i];
-      uint16_t min = mul * AVTK_PulseMinDuration;
-      uint16_t max = mul * AVTK_PulseMaxDuration;
-      boolean syncWordMatch = i < (highLowLengthsSize - 1) 
-         ? value_between(pulse, min, max) 
-         : pulse > mul * AVTK_PulseMinDuration;
-      if (!syncWordMatch) 
-      {
-         #ifdef PLUGIN_077_DEBUG
-         Serial.print(F(PLUGIN_077_ID ": Sync word mismatch at: "));
-         Serial.println(pulseIndex);
-         #endif
-         return false;
-      }
-   }
-   #ifdef PLUGIN_077_DEBUG
-   Serial.println(F(PLUGIN_077_ID ": Sync word complete"));
-   #endif
+    uint8_t bitsProccessed =
+        decode_bits(synword, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+                    AVTK_PULSE_DURATION_MID_D, 8 * syncwordLength);
+    if (!bitsProccessed) {
+#ifdef PLUGIN_077_DEBUG
+      Serial.printf("Error on syncword decode\n");
+#endif
+      return oneMessageProcessed;
+    }
 
-   if (sequenceEndsWithHigh) 
-   {
-      // end of sync word (HIGH) and start of payload (HIGH) are merged
-      // 480 0 959 0 962 <- if sync word ends with high, we subtract one pulse (962 - 480). 
-      // The remaining 478 remains as payload
-      pulseIndex--;
-      RawSignal.Pulses[pulseIndex] = RawSignal.Pulses[pulseIndex] - highLowLengths[highLowLengthsSize - 1] * AVTK_PulseDuration;
-   }
+#ifdef PLUGIN_077_DEBUG
+    Serial.printf("Syncword 0x");
+    for (size_t i = 0; i < syncwordLength; i++) {
+      Serial.printf("%02X", syncwordChars[i]);
+    }
+#endif
 
-   byte packet[] = { 0, 0, 0, 0, 0 };
+    if (!checkSyncWord(synword, syncwordChars, syncwordLength)) {
+#ifdef PLUGIN_077_DEBUG
+      Serial.printf(" not found\n");
+#endif
+      return oneMessageProcessed;
+    }
+#ifdef PLUGIN_077_DEBUG
+    Serial.printf(" found\n");
+#endif
 
-   if (!decode_pwm(packet, 35, RawSignal.Pulses, RawSignal.Number, pulseIndex, AVTK_PulseMinDuration,
-         AVTK_PulseMaxDuration, 2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration, 0)) 
-   {
-      #ifdef PLUGIN_077_DEBUG
-      Serial.println(F(PLUGIN_077_ID ": Avantek: PWM decoding failed"));
-      #endif
-      return false;
-   }
-   pulseIndex += (35 * 2);
+    int alteredIndex = pulseIndex;
+    uint16_t alteredValue = RawSignal.Pulses[pulseIndex];
+    if (isLowPulseIndex(pulseIndex)) {
+      // the last pulse "decode_bits" processed was high
+      RawSignal.Pulses[pulseIndex] =
+          RawSignal.Pulses[pulseIndex] - bitsProccessed * AVTK_PulseDuration;
+    }
 
-   #ifdef SerialDebugActivated
-   const size_t buflen = sizeof(PLUGIN_077_ID ": packet = ") + 5 * 2 + 1;
-   char printbuf[buflen];
-   snprintf(printbuf, buflen, "%s%02x%02x%02x%02x%02x", PLUGIN_077_ID ": packet = ", packet[0], packet[1], packet[2], packet[3], packet[4]);
-   SerialDebugPrintln(printbuf);
-   #endif
+    byte address[] = { 0, 0, 0, 0 };
+
+    bool decodeResult = decode_manchester(
+        address, 32, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PulseMinDuration,
+        AVTK_PulseMaxDuration, 2 * AVTK_PulseMinDuration,
+        2 * AVTK_PulseMaxDuration, 0, true);
+    RawSignal.Pulses[alteredIndex] = alteredValue;
+
+    if (!decodeResult) {
+#ifdef PLUGIN_077_DEBUG
+      Serial.printf("Could not decode address manchester data\n");
+#endif
+      return oneMessageProcessed;
+    }
+#ifdef PLUGIN_077_DEBUG
+    Serial.printf("Address (lsb): %02x %02x %02x %02x\n", address[0], address[1],
+           address[2], address[3]);
+    Serial.printf("pulseIndex is %i\n", pulseIndex);
+#endif
+
+    byte buttons[] = { 0 };
+    if (!decode_manchester(buttons, 1, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+                           AVTK_PulseMinDuration, AVTK_PulseMaxDuration,
+                           2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration,
+                           0, true)) {
+#ifdef PLUGIN_077_DEBUG
+#endif
+      Serial.printf("Could not decode buttons manchester data\n");
+      return oneMessageProcessed;
+    }
+// TODO we would have to shift back the result because we shifted it too much to
+// the left because we think that everything has 8 bits
+#ifdef PLUGIN_077_DEBUG
+    Serial.printf("Buttons: %02x\n", buttons[0]);
+    Serial.printf("pulseIndex is %i\n", pulseIndex);
+#endif
+
+    // pulseIndex += 7; // CRC
+    // pulseIndex += 3; // ???
+    int remainingPulsesCount = 7 + 3;
+
+    size_t remaining[remainingPulsesCount];
+    for (int i = 0; i < remainingPulsesCount; i++) {
+      remaining[i] =
+          (RawSignal.Pulses[pulseIndex++] + AVTK_PulseDuration / 2) / AVTK_PulseDuration;
+    }
+
+#ifdef PLUGIN_077_DEBUG
+    Serial.printf("remaining ");
+    for (int i = 0; i < remainingPulsesCount; i++) {
+      Serial.printf("%i ", remaining[i]);
+    }
+    Serial.printf("\n");
+    Serial.printf("pulseIndex is %i\n", pulseIndex);
+#endif
 
    display_Header();
    display_Name(PLUGIN_077_ID);
-   char c_ID[5 * 2 + 1];
-   sprintf(c_ID, "%02x%02x%02x%02x%02x", packet[0], packet[1], packet[2], packet[3], packet[4]);
+   char c_ID[4 * 2 + 1];
+   sprintf(c_ID, "%02x%02x%02x%02x", address[0], address[1], address[2], address[3]);
    display_IDc(c_ID);
+   display_SWITCH(buttons[0]);
    display_Footer();
-   //==================================================================================
-   RawSignal.Repeats = true; // suppress repeats of the same RF packet
-   RawSignal.Number = 0;     // do not process the packet any further
-   return true;
+
+    oneMessageProcessed = true;
+  }
+
+  return oneMessageProcessed;
 }
 #endif //PLUGIN_077
 
