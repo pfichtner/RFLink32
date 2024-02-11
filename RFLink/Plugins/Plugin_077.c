@@ -136,7 +136,8 @@ bool* convertToBinary(const char* hex, size_t* resultSize)
 
     if (binaryResult == NULL)
     {
-        Serial.printf(PLUGIN_077_ID ": Memory allocation failed\n");
+        Serial.print(F(PLUGIN_077_ID));
+        Serial.println(F(": Memory allocation failed"));
         exit(EXIT_FAILURE);
     }
 
@@ -207,8 +208,12 @@ boolean Plugin_077(byte function, const char *string)
       return oneMessageProcessed;
     }
 #ifdef PLUGIN_077_DEBUG
-    Serial.printf(PLUGIN_077_ID ": Preamble found (%i >= %i)\n", preamblePairsFound,
-           AVTK_MinSyncPairs);
+    Serial.print(F(PLUGIN_077_ID));
+    Serial.print(F(": Preamble found ("));
+    Serial.print(preamblePairsFound);
+    Serial.print(F(" >= "));
+    Serial.print(AVTK_MinSyncPairs);
+    Serial.println(F(")"));
 #endif
 
     uint8_t bitsProccessed =
