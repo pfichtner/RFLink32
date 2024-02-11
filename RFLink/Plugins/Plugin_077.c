@@ -318,25 +318,62 @@ inline void send(boolean state)
    delayMicroseconds(AVTK_PULSE_DURATION_MID_D);
 }
 
+inline void sendManchesterBit(bool bit)
+{
+  if (bit) {
+    send(true);
+    send(false);
+    send(false);
+  } else {
+    send(true);
+    send(true);
+    send(false);
+  }
+}
+
+void sendManchester(const char* data)
+{
+    for (size_t i = 0; i < strlen(data); i++) {
+        int hexValue = hexchar2hexvalue(data[i]);
+        for (int j = 3; j >= 0; j--) {
+            bool bit = (hexValue >> j) & 1;
+            sendManchesterBit(bit);
+        }
+    }
+}
+
 size_t preambleSize;
 size_t syncWordSize;
 bool* preamble = convertToBinary("aaaa", &preambleSize);
 bool* syncWord = convertToBinary("caca5353", &syncWordSize);
 
+const short sendTimes = 3;
+
 boolean PluginTX_077(byte function, const char *string)
 {
-   //10;AVANTEK;71f1100080
-   //012345678901234567890
-   if (strncasecmp(InputBuffer_Serial + 3, "AVANTEK;", 8) == 0) {
-		short times = 3;
-		char* address = InputBuffer_Serial + 3 + 8;
+   //10;AVANTEK;71f1100080;1
+   //01234567890123456789012
+  if (strncasecmp(string + 3, "AVANTEK;", 8) == 0) {
+    char *strings[4];
+    char *ptr = NULL;
+
+    // Tokenize input string
+    int index = 0;
+    ptr = strtok(const_cast<char*>(string), ";");
+    while (ptr != NULL) {
+        strings[index++] = ptr;
+        ptr = strtok(NULL, ";");
+    }
+
+    char *address = strings[2];
+    char *buttons = strings[3];
 
 		noInterrupts();
 
 #ifdef PLUGIN_077_DEBUG
     Serial.println(F(PLUGIN_077_ID ": Sending preamble"));
 #endif
-		for (u_short count = 0; count < times; count++) {
+		for (u_short count = 0; count < sendTimes; count++) {
          for (u_int i = 0; i < preambleSize; i++) {
             send(preamble[i]);
          }
@@ -349,34 +386,41 @@ boolean PluginTX_077(byte function, const char *string)
          }
 
 #ifdef PLUGIN_077_DEBUG
-         Serial.print(F(PLUGIN_077_ID ": Sending payload "));
+         Serial.print(F(PLUGIN_077_ID ": Sending address "));
          Serial.print(address);
 #endif
-			for (size_t i = 0; i < strlen(address); i++) {
-				char hexChar = address[i];
-				int hexValue = hexchar2hexvalue(hexChar);
 
-				for (int j = 3; j >= 0; j--) {
-					bool bit = (hexValue >> j) & 1;
-					if (bit) {
-						send(true);
-						send(false);
-						send(false);
-					} else {
-						send(true);
-						send(true);
-						send(false);
-					}
-				}
-			}
-         // TODO introduce as constant
-         delayMicroseconds(5 * AVTK_PULSE_DURATION_MID_D);
+      sendManchester(address);
+      sendManchester(buttons);
+
+      // TODO this is a hard coded CRC, we should be able to calculate it or to pass it as argument
+      send(true);
+      send(true);
+      send(true);
+      send(true);
+      send(false);
+      send(false);
+      send(true);
+      send(true);
+      send(false);
+      send(true);
+      send(true);
+      send(true);
+      send(true);
+      send(false);
+      send(false);
+      send(true);
+      send(false);
+      send(false);
+      send(true);
+      send(false);
+      send(false);
 		}
 		interrupts();
 
     return true;
 	}
-   return false;
+  return false;
 }
 
 #endif //PLUGIN_TX_077
