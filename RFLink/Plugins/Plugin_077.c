@@ -317,6 +317,9 @@ boolean Plugin_077(byte function, const char *string)
           (RawSignal.Pulses[pulseIndex++] + AVTK_PulseDuration / 2) / AVTK_PulseDuration;
     }
 
+    // Cast to void to indicate intentional unused variable
+    (void) remaining;
+
 #ifdef PLUGIN_077_DEBUG
     Serial.print(F(PLUGIN_077_ID));
     Serial.print(F(": remaining "));
