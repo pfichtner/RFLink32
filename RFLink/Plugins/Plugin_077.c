@@ -95,6 +95,7 @@ uint8_t decode_bits(uint8_t frame[], const uint16_t *pulses,
       frame[bitsRead / 8] |= i % 2 == 0;
       bitsRead++;
       if (bitsRead >= bitsToRead) {
+        frame[bitsRead / 8] <<= (8 - bitsRead) % 8;
         return j + 1;
       }
     }
@@ -307,26 +308,21 @@ boolean Plugin_077(byte function, const char *string)
     Serial.println(pulseIndex);
 #endif
 
-    // pulseIndex += 7; // CRC
-    // pulseIndex += 3; // ???
-    int remainingPulsesCount = 7 + 3;
-
-    size_t remaining[remainingPulsesCount];
-    for (int i = 0; i < remainingPulsesCount; i++) {
-      remaining[i] =
-          (RawSignal.Pulses[pulseIndex++] + AVTK_PulseDuration / 2) / AVTK_PulseDuration;
+    byte remaining[] = { 0, 0, 0 };
+    if (!decode_bits(remaining, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 21)) {
+#ifdef PLUGIN_077_DEBUG
+      printf("Error on remaining bits decode\n");
+#endif
+      return oneMessageProcessed;
     }
-
-    // Cast to void to indicate intentional unused variable
-    (void) remaining;
+    pulseIndex++;
 
 #ifdef PLUGIN_077_DEBUG
     Serial.print(F(PLUGIN_077_ID));
-    Serial.print(F(": remaining "));
-    for (int i = 0; i < remainingPulsesCount; i++) {
-      Serial.print(remaining[i]);
-      Serial.print(F(" "));
-    }
+    Serial.print(F(": Reamaining: 0x"));
+    Serial.print(remaining[0], HEX);
+    Serial.print(remaining[1], HEX);
+    Serial.print(remaining[2], HEX);
     Serial.println();
 
     Serial.print(F(PLUGIN_077_ID));
@@ -437,26 +433,11 @@ boolean PluginTX_077(byte function, const char *string)
       sendManchester(buttons);
 
       // TODO this is a hard coded CRC, we should be able to calculate it or to pass it as argument
-      send(true);
-      send(true);
-      send(true);
-      send(true);
-      send(false);
-      send(false);
-      send(true);
-      send(true);
-      send(false);
-      send(true);
-      send(true);
-      send(true);
-      send(true);
-      send(false);
-      send(false);
-      send(true);
-      send(false);
-      send(false);
-      send(true);
-      send(false);
+      send(true);  send(true);  send(false); send(true);
+      send(true);  send(false); send(true);  send(true);
+      send(false); send(false); send(false); send(false);
+      send(true);  send(false); send(false); send(true);
+      send(true);  send(false); send(false); send(false);
       send(false);
 		}
 		interrupts();
