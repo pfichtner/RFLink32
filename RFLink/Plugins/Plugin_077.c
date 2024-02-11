@@ -392,7 +392,7 @@ boolean PluginTX_077(byte function, const char *string)
 {
    //10;AVANTEK;71f1100080;1
    //01234567890123456789012
-  if (strncasecmp(string + 3, "AVANTEK;", 8) == 0) {
+  if (string != NULL && strncasecmp(string + 3, "AVANTEK;", 8) == 0) {
     char *strings[4];
     char *ptr = NULL;
 
