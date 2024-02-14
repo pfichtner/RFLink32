@@ -232,7 +232,7 @@ boolean Plugin_077(byte function, const char *string)
     Serial.print(F(PLUGIN_077_ID));
     Serial.print(F(": Syncword 0x"));
     for (size_t i = 0; i < syncwordLength; i++) {
-      Serial.print(F("%02X"));
+      Serial.print(syncwordChars[i], HEX);
     }
 #endif
 
