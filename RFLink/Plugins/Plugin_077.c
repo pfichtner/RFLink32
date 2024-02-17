@@ -81,6 +81,22 @@ inline bool value_between(uint16_t value, uint16_t min, uint16_t max) {
 
 inline bool isLowPulseIndex(const int pulseIndex) { return (pulseIndex % 2 == 1); }
 
+u_short countPreamblePairs(const uint16_t pulses[], int *pulseIndex, size_t pulseCount, size_t AVTK_SyncPairsCount, uint16_t AVTK_PulseMinDuration, uint16_t AVTK_PulseMaxDuration) {
+    u_short preamblePairsFound = 0;
+
+    for (size_t i = 0; i < AVTK_SyncPairsCount && *pulseIndex < pulseCount - 1; i++, (*pulseIndex) += 2) {
+        if (value_between(pulses[*pulseIndex], AVTK_PulseMinDuration, AVTK_PulseMaxDuration) &&
+            value_between(pulses[*pulseIndex + 1], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)) {
+            preamblePairsFound++;
+        } else if (preamblePairsFound > 0) {
+            // if we didn't already have a match, we ignore as mismatch, otherwise we break here
+            break;
+        }
+    }
+
+    return preamblePairsFound;
+}
+
 uint8_t decode_bits(uint8_t frame[], const uint16_t *pulses,
                     const size_t pulsesCount, int *pulseIndex,
                     uint16_t pulseDuration, size_t bitsToRead) {
@@ -183,20 +199,7 @@ boolean Plugin_077(byte function, const char *string)
 
   while (pulseIndex + (int)(2 * AVTK_SyncPairsCount + syncWordSize) <
          RawSignal.Number) {
-    u_short preamblePairsFound = 0;
-    for (size_t i = 0; i < AVTK_SyncPairsCount; i++) {
-      if (value_between(RawSignal.Pulses[pulseIndex], AVTK_PulseMinDuration,
-                        AVTK_PulseMaxDuration) &&
-          value_between(RawSignal.Pulses[pulseIndex + 1], AVTK_PulseMinDuration,
-                        AVTK_PulseMaxDuration)) {
-        preamblePairsFound++;
-      } else if (preamblePairsFound > 0) {
-        // if we didn't already had a match, we ignore as mismatch, otherwise we
-        // break here
-        break;
-      }
-      pulseIndex += 2;
-    }
+    u_short preamblePairsFound = countPreamblePairs(RawSignal.Pulses, &pulseIndex, RawSignal.Number, AVTK_SyncPairsCount, AVTK_PulseMinDuration, AVTK_PulseMaxDuration);
 
     if (preamblePairsFound < AVTK_MinSyncPairs) {
 #ifdef PLUGIN_077_DEBUG
@@ -297,6 +300,7 @@ boolean Plugin_077(byte function, const char *string)
 #endif
       return oneMessageProcessed;
     }
+
 // TODO we would have to shift back the result because we shifted it too much to
 // the left because we think that everything has 8 bits
 #ifdef PLUGIN_077_DEBUG
@@ -309,31 +313,37 @@ boolean Plugin_077(byte function, const char *string)
     Serial.println(pulseIndex);
 #endif
 
-    if (RawSignal.Number > pulseIndex + 3 && RawSignal.Pulses[pulseIndex + 3] >= 4 * AVTK_PULSE_DURATION_MID_D) {
-      byte remaining[] = { 0, 0, 0 };
-      if (!decode_bits(remaining, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 9)) {
-  #ifdef PLUGIN_077_DEBUG
-        printf("Error on remaining bits decode\n");
-  #endif
-        return oneMessageProcessed;
-      }
-      pulseIndex++;
+    if (pulseIndex + 2 * AVTK_SyncPairsCount < RawSignal.Number) {
+      short savedPulseIndex = pulseIndex;
+      preamblePairsFound = countPreamblePairs(RawSignal.Pulses, &pulseIndex, RawSignal.Number, AVTK_SyncPairsCount, AVTK_PulseMinDuration, AVTK_PulseMaxDuration);
+      pulseIndex = savedPulseIndex;
+
+      if (preamblePairsFound < AVTK_SyncPairsCount) {
+        byte remaining[] = { 0, 0, 0 };
+        if (!decode_bits(remaining, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 9)) {
+#ifdef PLUGIN_077_DEBUG
+          printf("Error on remaining bits decode\n");
+#endif
+          return oneMessageProcessed;
+        }
+        pulseIndex++;
 
 #ifdef PLUGIN_077_DEBUG
-      Serial.print(F(PLUGIN_077_ID));
-      Serial.print(F(": pulseIndex is "));
-      Serial.println(pulseIndex);
-      Serial.print(F(PLUGIN_077_ID));
-      Serial.print(F(": Reamaining: 0x"));
-      Serial.print(remaining[0], HEX);
-      Serial.print(remaining[1], HEX);
-      Serial.print(remaining[2], HEX);
-      Serial.println();
+        Serial.print(F(PLUGIN_077_ID));
+        Serial.print(F(": pulseIndex is "));
+        Serial.println(pulseIndex);
+        Serial.print(F(PLUGIN_077_ID));
+        Serial.print(F(": Reamaining: 0x"));
+        Serial.print(remaining[0], HEX);
+        Serial.print(remaining[1], HEX);
+        Serial.print(remaining[2], HEX);
+        Serial.println();
 
-      Serial.print(F(PLUGIN_077_ID));
-      Serial.print(F(": pulseIndex is "));
-      Serial.println(pulseIndex);
+        Serial.print(F(PLUGIN_077_ID));
+        Serial.print(F(": pulseIndex is "));
+        Serial.println(pulseIndex);
 #endif
+      }
     }
 
     display_Header();
