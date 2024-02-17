@@ -40,6 +40,7 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
   const uint8_t endBitCount = expectedBitCount + bitOffset;
 
   for (uint8_t bitIndex = bitOffset; bitIndex < endBitCount; bitIndex++) {
+    bool isLast = bitIndex + 1 == endBitCount;
     int currentFrameByteIndex = bitIndex / bitsPerByte;
     uint16_t bitDuration0 = pulses[*pulseIndex];
     uint16_t bitDuration1 = pulses[*pulseIndex + 1];
@@ -48,14 +49,14 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
     if (value_between(bitDuration0, shortPulseMinDuration,
                        shortPulseMaxDuration) &&
         value_between(bitDuration1, longPulseMinDuration,
-                       longPulseMaxDuration)) {
+                       isLast ? static_cast<uint16_t>(UINT16_MAX) : longPulseMaxDuration)) {
       uint8_t offset = bitIndex % bitsPerByte;
       frame[currentFrameByteIndex] |=
           1 << (lsb ? offset : (bitsPerByte - 1 - offset));
     } else if (!value_between(bitDuration0, longPulseMinDuration,
                                longPulseMaxDuration) ||
                !value_between(bitDuration1, shortPulseMinDuration,
-                               shortPulseMaxDuration)) {
+                               isLast ? static_cast<uint16_t>(UINT16_MAX) : shortPulseMaxDuration)) {
 #ifdef MANCHESTER_DEBUG
       Serial.print(F("MANCHESTER_DEBUG: Invalid duration at pulse "));
       Serial.print(*pulseIndex);
@@ -286,7 +287,7 @@ boolean Plugin_077(byte function, const char *string)
 #endif
 
     byte buttons[] = { 0 };
-    if (!decode_manchester(buttons, 1, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+    if (!decode_manchester(buttons, 4, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
                            AVTK_PulseMinDuration, AVTK_PulseMaxDuration,
                            2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration,
                            0, true)) {
@@ -308,27 +309,32 @@ boolean Plugin_077(byte function, const char *string)
     Serial.println(pulseIndex);
 #endif
 
-    byte remaining[] = { 0, 0, 0 };
-    if (!decode_bits(remaining, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 21)) {
+    if (RawSignal.Number > pulseIndex + 3 && RawSignal.Pulses[pulseIndex + 3] >= 4 * AVTK_PULSE_DURATION_MID_D) {
+      byte remaining[] = { 0, 0, 0 };
+      if (!decode_bits(remaining, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 9)) {
+  #ifdef PLUGIN_077_DEBUG
+        printf("Error on remaining bits decode\n");
+  #endif
+        return oneMessageProcessed;
+      }
+      pulseIndex++;
+
 #ifdef PLUGIN_077_DEBUG
-      printf("Error on remaining bits decode\n");
+      Serial.print(F(PLUGIN_077_ID));
+      Serial.print(F(": pulseIndex is "));
+      Serial.println(pulseIndex);
+      Serial.print(F(PLUGIN_077_ID));
+      Serial.print(F(": Reamaining: 0x"));
+      Serial.print(remaining[0], HEX);
+      Serial.print(remaining[1], HEX);
+      Serial.print(remaining[2], HEX);
+      Serial.println();
+
+      Serial.print(F(PLUGIN_077_ID));
+      Serial.print(F(": pulseIndex is "));
+      Serial.println(pulseIndex);
 #endif
-      return oneMessageProcessed;
     }
-    pulseIndex++;
-
-#ifdef PLUGIN_077_DEBUG
-    Serial.print(F(PLUGIN_077_ID));
-    Serial.print(F(": Reamaining: 0x"));
-    Serial.print(remaining[0], HEX);
-    Serial.print(remaining[1], HEX);
-    Serial.print(remaining[2], HEX);
-    Serial.println();
-
-    Serial.print(F(PLUGIN_077_ID));
-    Serial.print(F(": pulseIndex is "));
-    Serial.println(pulseIndex);
-#endif
 
     display_Header();
     display_Name(PLUGIN_077_ID);
