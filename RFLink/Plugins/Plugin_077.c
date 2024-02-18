@@ -221,6 +221,7 @@ boolean Plugin_077(byte function, const char *string)
     Serial.println(F(")"));
 #endif
 
+    for (size_t i = 0; i < syncwordLength; i++) synword[i] = 0;
     uint8_t bitsProccessed =
         decode_bits(synword, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
                     AVTK_PULSE_DURATION_MID_D, 8 * syncwordLength);
