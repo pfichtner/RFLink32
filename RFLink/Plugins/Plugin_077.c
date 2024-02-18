@@ -121,9 +121,9 @@ uint8_t decode_bits(uint8_t frame[], const uint16_t *pulses,
   return bitsRead >= bitsToRead ? 0 : -1;
 }
 
-bool checkSyncWord(const unsigned char synword[], const unsigned char pattern[], size_t length) {
+bool checkSyncWord(const unsigned char syncword[], const unsigned char pattern[], size_t length) {
   for (size_t i = 0; i < length; i++) {
-    if (synword[i] != pattern[i]) {
+    if (syncword[i] != pattern[i]) {
       return false;
     }
   }
@@ -191,7 +191,7 @@ boolean Plugin_077(byte function, const char *string)
   const int syncWordSize = 8;
   unsigned char syncwordChars[] = {0xCA, 0xCA, 0x53, 0x53};
   size_t syncwordLength = sizeof(syncwordChars) / sizeof(syncwordChars[0]);
-  uint8_t synword[syncwordLength];
+  uint8_t syncword[syncwordLength];
 
   int pulseIndex = 1;
   bool oneMessageProcessed = false;
@@ -220,9 +220,9 @@ boolean Plugin_077(byte function, const char *string)
     Serial.println(F(")"));
 #endif
 
-    for (size_t i = 0; i < syncwordLength; i++) synword[i] = 0;
+    for (size_t i = 0; i < syncwordLength; i++) syncword[i] = 0;
     uint8_t bitsProccessed =
-        decode_bits(synword, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+        decode_bits(syncword, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
                     AVTK_PULSE_DURATION_MID_D, 8 * syncwordLength);
     if (!bitsProccessed) {
 #ifdef PLUGIN_077_DEBUG
@@ -240,7 +240,7 @@ boolean Plugin_077(byte function, const char *string)
     }
 #endif
 
-    if (!checkSyncWord(synword, syncwordChars, syncwordLength)) {
+    if (!checkSyncWord(syncword, syncwordChars, syncwordLength)) {
 #ifdef PLUGIN_077_DEBUG
       Serial.println(F(" not found"));
 #endif
