@@ -178,14 +178,6 @@ bool* convertToBinary(const char* hex, size_t* resultSize)
 
 boolean Plugin_077(byte function, const char *string)
 {
-   if (RawSignal.Number == 0)
-   {
-      return false;
-   }
-
-   const u_int16_t AVTK_PulseDuration = AVTK_PULSE_DURATION_MID_D / RawSignal.Multiply;
-   const u_int16_t AVTK_PulseMinDuration = AVTK_PULSE_DURATION_MIN_D / RawSignal.Multiply;
-   const u_int16_t AVTK_PulseMaxDuration = AVTK_PULSE_DURATION_MAX_D / RawSignal.Multiply;
    const u_short AVTK_SyncPairsCount = 8;
    const u_short AVTK_MinSyncPairs = 5;
 
@@ -193,6 +185,15 @@ boolean Plugin_077(byte function, const char *string)
   unsigned char syncwordChars[] = {0xCA, 0xCA, 0x53, 0x53};
   size_t syncwordLength = sizeof(syncwordChars) / sizeof(syncwordChars[0]);
   uint8_t syncword[syncwordLength];
+
+  if (RawSignal.Number == 0)
+  {
+    return false;
+  }
+
+  const u_int16_t AVTK_PulseDuration = AVTK_PULSE_DURATION_MID_D / RawSignal.Multiply;
+  const u_int16_t AVTK_PulseMinDuration = AVTK_PULSE_DURATION_MIN_D / RawSignal.Multiply;
+  const u_int16_t AVTK_PulseMaxDuration = AVTK_PULSE_DURATION_MAX_D / RawSignal.Multiply;
 
   int pulseIndex = 1;
   bool oneMessageProcessed = false;
