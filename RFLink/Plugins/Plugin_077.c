@@ -112,7 +112,6 @@ uint8_t decode_bits(uint8_t frame[], const uint16_t *pulses,
       frame[bitsRead / 8] |= i % 2 == 0;
       bitsRead++;
       if (bitsRead >= bitsToRead) {
-        frame[bitsRead / 8] <<= (8 - bitsRead) % 8;
         return j + 1;
       }
     }
