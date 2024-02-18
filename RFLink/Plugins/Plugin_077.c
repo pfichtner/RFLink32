@@ -251,7 +251,7 @@ boolean Plugin_077(byte function, const char *string)
 #endif
 
     int alteredIndex = pulseIndex;
-    uint16_t alteredValue = RawSignal.Pulses[pulseIndex];
+    uint16_t alteredValue = RawSignal.Pulses[alteredIndex];
     if (isLowPulseIndex(pulseIndex)) {
       // the last pulse "decode_bits" processed was high
       RawSignal.Pulses[pulseIndex] =
@@ -319,24 +319,32 @@ boolean Plugin_077(byte function, const char *string)
       pulseIndex = savedPulseIndex;
 
       if (preamblePairsFound < AVTK_SyncPairsCount) {
-        byte remaining[] = { 0, 0, 0 };
-        if (!decode_bits(remaining, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 9)) {
+        pulseIndex--;
+
+        alteredIndex = pulseIndex;
+        alteredValue = RawSignal.Pulses[alteredIndex];
+        bool bitNr4IsSet = buttons[0] & 0b00010000; // 4th bit to the left, 0=110 (2x 1x), 1=100 (1x 2x)
+        RawSignal.Pulses[alteredIndex] -= ((bitNr4IsSet ? 2 : 1) * AVTK_PulseDuration);
+
+        byte crc[] = { 0 };
+        decodeResult = decode_bits(crc, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 8);
+        RawSignal.Pulses[alteredIndex] = alteredValue;
+
+        if (!decodeResult) {
 #ifdef PLUGIN_077_DEBUG
-          printf("Error on remaining bits decode\n");
+          printf("Error on crc decode\n");
 #endif
           return oneMessageProcessed;
         }
-        pulseIndex++;
+        pulseIndex += 2;
 
 #ifdef PLUGIN_077_DEBUG
         Serial.print(F(PLUGIN_077_ID));
         Serial.print(F(": pulseIndex is "));
         Serial.println(pulseIndex);
         Serial.print(F(PLUGIN_077_ID));
-        Serial.print(F(": Reamaining: 0x"));
-        Serial.print(remaining[0], HEX);
-        Serial.print(remaining[1], HEX);
-        Serial.print(remaining[2], HEX);
+        Serial.print(F(": CRC: 0x"));
+        Serial.print(crc[0], HEX);
         Serial.println();
 
         Serial.print(F(PLUGIN_077_ID));
@@ -447,14 +455,6 @@ boolean PluginTX_077(byte function, const char *string)
 
       sendManchester(address);
       sendManchester(buttons);
-
-      // TODO this is a hard coded CRC, we should be able to calculate it or to pass it as argument
-      send(true);  send(true);  send(false); send(true);
-      send(true);  send(false); send(true);  send(true);
-      send(false); send(false); send(false); send(false);
-      send(true);  send(false); send(false); send(true);
-      send(true);  send(false); send(false); send(false);
-      send(false);
 		}
 		interrupts();
 
