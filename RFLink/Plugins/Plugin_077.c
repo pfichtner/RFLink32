@@ -84,7 +84,7 @@ inline bool isLowPulseIndex(const int pulseIndex) { return (pulseIndex % 2 == 1)
 u_short countPreamblePairs(const uint16_t pulses[], int *pulseIndex, size_t pulseCount, size_t AVTK_SyncPairsCount, uint16_t AVTK_PulseMinDuration, uint16_t AVTK_PulseMaxDuration) {
     u_short preamblePairsFound = 0;
 
-    for (size_t i = 0; i < AVTK_SyncPairsCount && *pulseIndex < pulseCount - 1; i++, (*pulseIndex) += 2) {
+    for (size_t i = 0; i < (size_t) AVTK_SyncPairsCount && *pulseIndex < (int) pulseCount - 1; i++, (*pulseIndex) += 2) {
         if (value_between(pulses[*pulseIndex], AVTK_PulseMinDuration, AVTK_PulseMaxDuration) &&
             value_between(pulses[*pulseIndex + 1], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)) {
             preamblePairsFound++;
