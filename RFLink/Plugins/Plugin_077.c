@@ -79,7 +79,7 @@ inline bool value_between(uint16_t value, uint16_t min, uint16_t max) {
   return ((value > min) && (value < max));
 }
 
-inline bool isLowPulseIndex(const int pulseIndex) { return (pulseIndex % 2 == 1); }
+inline bool isLowPulseIndex(const int pulseIndex) { return (pulseIndex % 2 == 0); }
 
 u_short countPreamblePairs(const uint16_t pulses[], int *pulseIndex, size_t pulseCount, size_t AVTK_SyncPairsCount, uint16_t AVTK_PulseMinDuration, uint16_t AVTK_PulseMaxDuration) {
     u_short preamblePairsFound = 0;
@@ -102,14 +102,15 @@ uint8_t decode_bits(uint8_t frame[], const uint16_t *pulses,
                     uint16_t pulseDuration, size_t bitsToRead) {
   size_t bitsRead = 0;
 
-  for (size_t i = 0; *pulseIndex + i < pulsesCount && bitsRead < bitsToRead;
-       i++, (*pulseIndex)++) {
+    for (; *pulseIndex < (int) pulsesCount && bitsRead < bitsToRead; (*pulseIndex)++) {
     size_t bits =
         (size_t)((pulses[*pulseIndex] + (pulseDuration / 2)) / pulseDuration);
 
     for (size_t j = 0; j < bits; j++) {
       frame[bitsRead / 8] <<= 1;
-      frame[bitsRead / 8] |= i % 2 == 0;
+      if (!isLowPulseIndex(*pulseIndex)) {
+        frame[bitsRead / 8] |= 1;
+      }
       bitsRead++;
       if (bitsRead >= bitsToRead) {
         return j + 1;
@@ -252,7 +253,7 @@ boolean Plugin_077(byte function, const char *string)
 
     int alteredIndex = pulseIndex;
     uint16_t alteredValue = RawSignal.Pulses[alteredIndex];
-    if (isLowPulseIndex(pulseIndex)) {
+    if (!isLowPulseIndex(pulseIndex)) {
       // the last pulse "decode_bits" processed was high
       RawSignal.Pulses[pulseIndex] =
           RawSignal.Pulses[pulseIndex] - bitsProccessed * AVTK_PulseDuration;
