@@ -209,9 +209,10 @@ boolean Plugin_077(byte function, const char *string)
       Serial.print(preamblePairsFound);
       Serial.print(F(" < "));
       Serial.print(AVTK_MinSyncPairs);
-      Serial.println(F(")"));
+      Serial.println(F("), pulseIndex is "));
+      Serial.println(pulseIndex);
 #endif
-      return oneMessageProcessed;
+      continue;
     }
 #ifdef PLUGIN_077_DEBUG
     Serial.print(F(PLUGIN_077_ID));
@@ -219,7 +220,8 @@ boolean Plugin_077(byte function, const char *string)
     Serial.print(preamblePairsFound);
     Serial.print(F(" >= "));
     Serial.print(AVTK_MinSyncPairs);
-    Serial.println(F(")"));
+    Serial.println(F("), pulseIndex is "));
+    Serial.println(pulseIndex);
 #endif
 
     for (size_t i = 0; i < syncwordLength; i++) syncword[i] = 0;
@@ -231,7 +233,7 @@ boolean Plugin_077(byte function, const char *string)
       Serial.print(F(PLUGIN_077_ID));
       Serial.println(F(": Error on syncword decode"));
 #endif
-      return oneMessageProcessed;
+      continue;
     }
 
 #ifdef PLUGIN_077_DEBUG
@@ -246,7 +248,7 @@ boolean Plugin_077(byte function, const char *string)
 #ifdef PLUGIN_077_DEBUG
       Serial.println(F(" not found"));
 #endif
-      return oneMessageProcessed;
+      continue;
     }
 #ifdef PLUGIN_077_DEBUG
       Serial.println(F(" found"));
@@ -273,7 +275,7 @@ boolean Plugin_077(byte function, const char *string)
       Serial.print(F(PLUGIN_077_ID));
       Serial.println(F(": Could not decode address manchester data"));
 #endif
-      return oneMessageProcessed;
+      continue;
     }
 #ifdef PLUGIN_077_DEBUG
     Serial.print(F(PLUGIN_077_ID));
@@ -300,7 +302,7 @@ boolean Plugin_077(byte function, const char *string)
       Serial.print(F(PLUGIN_077_ID));
       Serial.println(F(": Could not decode buttons manchester data"));
 #endif
-      return oneMessageProcessed;
+      continue;
     }
 
 // TODO we would have to shift back the result because we shifted it too much to
@@ -336,7 +338,7 @@ boolean Plugin_077(byte function, const char *string)
 #ifdef PLUGIN_077_DEBUG
           printf("Error on crc decode\n");
 #endif
-          return oneMessageProcessed;
+          continue;
         }
         pulseIndex += 2;
 
