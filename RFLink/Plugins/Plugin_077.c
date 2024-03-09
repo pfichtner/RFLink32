@@ -196,7 +196,6 @@ boolean Plugin_077(byte function, const char *string)
   const u_int16_t AVTK_PulseMaxDuration = AVTK_PULSE_DURATION_MAX_D / RawSignal.Multiply;
 
   int pulseIndex = 1;
-  bool oneMessageProcessed = false;
 
   while (pulseIndex + (int)(2 * AVTK_SyncPairsCount + syncWordSize) <
          RawSignal.Number) {
@@ -365,11 +364,14 @@ boolean Plugin_077(byte function, const char *string)
     display_IDc(c_ID);
     display_SWITCH(buttons[0]);
     display_Footer();
+   //==================================================================================
+   RawSignal.Repeats = true; // suppress repeats of the same RF packet
+   RawSignal.Number = 0;     // do not process the packet any further
 
-    oneMessageProcessed = true;
+    return true;
   }
 
-  return oneMessageProcessed;
+  return false;
 }
 #endif //PLUGIN_077
 
