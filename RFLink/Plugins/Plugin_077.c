@@ -357,6 +357,17 @@ boolean Plugin_077(byte function, const char *string)
       }
     }
 
+   //==================================================================================
+   // Prevent repeating signals from showing up
+   //==================================================================================
+   unsigned long tmpval = (uint32_t)(((((uint32_t)address[0] << 24) | ((uint32_t)address[1] << 16) | ((uint32_t)address[2] << 8) | address[3]) << 8) | buttons[0]);
+   if ((SignalHash != SignalHashPrevious) || ((RepeatingTimer + 1000) < millis()) || (SignalCRC != tmpval))
+      SignalCRC = tmpval; // not seen the RF packet recently
+   else
+      return true; // already seen the RF packet recently
+   //==================================================================================
+   // Output
+   //==================================================================================
     display_Header();
     display_Name(PLUGIN_077_ID);
     char c_ID[4 * 2 + 1];
