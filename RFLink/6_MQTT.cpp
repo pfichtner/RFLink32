@@ -330,7 +330,22 @@ void publishMsg()
 
   if (!MQTTClient.connected())
     reconnect(1);
+
+  char charAtRemovedNewline = 0;
+  size_t len = strlen(pbuffer);
+
+  // Remove trailing newline from pbuffer
+  if (len > 0 && pbuffer[len - 1] == '\n') {
+      charAtRemovedNewline = pbuffer[len - 1];
+      pbuffer[len - 1] = '\0';
+  }
+
   MQTTClient.publish(params::topic_out.c_str(), pbuffer, MQTT_RETAINED);
+
+  // Restore the newline character if it was removed
+  if (charAtRemovedNewline != 0) {
+      pbuffer[len - 1] = charAtRemovedNewline;
+  }
 }
 
 void checkMQTTloop()
