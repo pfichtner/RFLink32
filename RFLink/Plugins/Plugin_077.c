@@ -14,6 +14,18 @@
 #define AVTK_PULSE_DURATION_MIN_D 380
 #define AVTK_PULSE_DURATION_MAX_D 580
 
+uint32_t reverseBits(uint32_t value, unsigned int bitWidth) {
+    uint32_t reversed = 0;
+    for (unsigned int i = 0; i < bitWidth; ++i) {
+        reversed <<= 1;
+        if (value & 1) {
+            reversed |= 1;
+        }
+        value >>= 1;
+    }
+    return reversed;
+}
+
 bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        uint16_t const pulses[], const int pulsesCount,
                        int *pulseIndex, uint16_t shortPulseMinDuration,
@@ -306,6 +318,19 @@ boolean Plugin_077(byte function, const char *string)
 
 // TODO we would have to shift back the result because we shifted it too much to
 // the left because we think that everything has 8 bits
+
+    bool hasCrc = false;
+    if (pulseIndex + 2 * AVTK_SyncPairsCount < RawSignal.Number) {
+      short savedPulseIndex = pulseIndex;
+      preamblePairsFound = countPreamblePairs(RawSignal.Pulses, &pulseIndex, RawSignal.Number, AVTK_SyncPairsCount, AVTK_PulseMinDuration, AVTK_PulseMaxDuration);
+      pulseIndex = savedPulseIndex;
+      hasCrc = preamblePairsFound < AVTK_SyncPairsCount;
+    }
+
+    if (!hasCrc) {
+        buttons[0] = reverseBits(buttons[0], 4);
+    }
+
 #ifdef PLUGIN_077_DEBUG
     Serial.print(F(PLUGIN_077_ID));
     Serial.print(F(": Buttons: "));
@@ -316,45 +341,39 @@ boolean Plugin_077(byte function, const char *string)
     Serial.println(pulseIndex);
 #endif
 
-    if (pulseIndex + 2 * AVTK_SyncPairsCount < RawSignal.Number) {
-      short savedPulseIndex = pulseIndex;
-      preamblePairsFound = countPreamblePairs(RawSignal.Pulses, &pulseIndex, RawSignal.Number, AVTK_SyncPairsCount, AVTK_PulseMinDuration, AVTK_PulseMaxDuration);
-      pulseIndex = savedPulseIndex;
+    if (hasCrc) {
+      pulseIndex--;
 
-      if (preamblePairsFound < AVTK_SyncPairsCount) {
-        pulseIndex--;
+      alteredIndex = pulseIndex;
+      alteredValue = RawSignal.Pulses[alteredIndex];
+      bool bitNr4IsSet = buttons[0] & 0b00010000; // 4th bit to the left, 0=110 (2x 1x), 1=100 (1x 2x)
+      RawSignal.Pulses[alteredIndex] -= ((bitNr4IsSet ? 2 : 1) * AVTK_PulseDuration);
 
-        alteredIndex = pulseIndex;
-        alteredValue = RawSignal.Pulses[alteredIndex];
-        bool bitNr4IsSet = buttons[0] & 0b00010000; // 4th bit to the left, 0=110 (2x 1x), 1=100 (1x 2x)
-        RawSignal.Pulses[alteredIndex] -= ((bitNr4IsSet ? 2 : 1) * AVTK_PulseDuration);
+      byte crc[] = { 0 };
+      decodeResult = decode_bits(crc, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 8);
+      RawSignal.Pulses[alteredIndex] = alteredValue;
 
-        byte crc[] = { 0 };
-        decodeResult = decode_bits(crc, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PULSE_DURATION_MID_D, 8);
-        RawSignal.Pulses[alteredIndex] = alteredValue;
-
-        if (!decodeResult) {
+      if (!decodeResult) {
 #ifdef PLUGIN_077_DEBUG
-          printf("Error on crc decode\n");
+        printf("Error on crc decode\n");
 #endif
-          continue;
-        }
-        pulseIndex += 2;
-
-#ifdef PLUGIN_077_DEBUG
-        Serial.print(F(PLUGIN_077_ID));
-        Serial.print(F(": pulseIndex is "));
-        Serial.println(pulseIndex);
-        Serial.print(F(PLUGIN_077_ID));
-        Serial.print(F(": CRC: 0x"));
-        Serial.print(crc[0], HEX);
-        Serial.println();
-
-        Serial.print(F(PLUGIN_077_ID));
-        Serial.print(F(": pulseIndex is "));
-        Serial.println(pulseIndex);
-#endif
+        continue;
       }
+      pulseIndex += 2;
+
+#ifdef PLUGIN_077_DEBUG
+      Serial.print(F(PLUGIN_077_ID));
+      Serial.print(F(": pulseIndex is "));
+      Serial.println(pulseIndex);
+      Serial.print(F(PLUGIN_077_ID));
+      Serial.print(F(": CRC: 0x"));
+      Serial.print(crc[0], HEX);
+      Serial.println();
+
+      Serial.print(F(PLUGIN_077_ID));
+      Serial.print(F(": pulseIndex is "));
+      Serial.println(pulseIndex);
+#endif
     }
 
    //==================================================================================
