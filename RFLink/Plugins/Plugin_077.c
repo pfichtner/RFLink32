@@ -64,7 +64,7 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        isLast ? static_cast<uint16_t>(UINT16_MAX) : longPulseMaxDuration)) {
       uint8_t offset = bitIndex % bitsPerByte;
       frame[currentFrameByteIndex] |=
-          1 << (lsb ? offset : (bitsPerByte - 1 - offset));
+          1 << (lsb ? (bitsPerByte - 1 - offset) : offset);
     } else if (!value_between(bitDuration0, longPulseMinDuration,
                                longPulseMaxDuration) ||
                !value_between(bitDuration1, shortPulseMinDuration,
