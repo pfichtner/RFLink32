@@ -32,7 +32,7 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        uint16_t shortPulseMaxDuration,
                        uint16_t longPulseMinDuration,
                        uint16_t longPulseMaxDuration, uint8_t bitOffset,
-                       bool lsb) {
+                       uint8_t bitsPerByte, bool lsb) {
   if (*pulseIndex + (expectedBitCount - 1) * 2 > pulsesCount) {
 #ifdef MANCHESTER_DEBUG
     Serial.print(F("MANCHESTER_DEBUG: Not enough pulses: *pulseIndex = "));
@@ -47,8 +47,6 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
     return false;
   }
 
-  // TODO we could add parameter "bitsPerByte"
-  const uint8_t bitsPerByte = 8;
   const uint8_t endBitCount = expectedBitCount + bitOffset;
 
   for (uint8_t bitIndex = bitOffset; bitIndex < endBitCount; bitIndex++) {
@@ -278,7 +276,7 @@ boolean Plugin_077(byte function, const char *string)
     bool decodeResult = decode_manchester(
         address, 32, RawSignal.Pulses, RawSignal.Number, &pulseIndex, AVTK_PulseMinDuration,
         AVTK_PulseMaxDuration, 2 * AVTK_PulseMinDuration,
-        2 * AVTK_PulseMaxDuration, 0, true);
+        2 * AVTK_PulseMaxDuration, 0, 8, true);
     RawSignal.Pulses[alteredIndex] = alteredValue;
 
     if (!decodeResult) {
@@ -308,7 +306,7 @@ boolean Plugin_077(byte function, const char *string)
     if (!decode_manchester(buttons, 4, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
                            AVTK_PulseMinDuration, AVTK_PulseMaxDuration,
                            2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration,
-                           0, true)) {
+                           0, 4, true)) {
 #ifdef PLUGIN_077_DEBUG
       Serial.print(F(PLUGIN_077_ID));
       Serial.println(F(": Could not decode buttons manchester data"));
@@ -327,7 +325,7 @@ boolean Plugin_077(byte function, const char *string)
       hasCrc = preamblePairsFound < AVTK_SyncPairsCount;
     }
 
-    if (!hasCrc) {
+    if (hasCrc) {
         buttons[0] = reverseBits(buttons[0], 4);
     }
 
