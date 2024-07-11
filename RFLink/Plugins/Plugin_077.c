@@ -14,6 +14,8 @@
 #define AVTK_PULSE_DURATION_MIN_D 380
 #define AVTK_PULSE_DURATION_MAX_D 580
 
+#define BUTTONS_BITS_COUNT 4
+
 bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        uint16_t const pulses[], const int pulsesCount,
                        int *pulseIndex, uint16_t shortPulseMinDuration,
@@ -294,10 +296,10 @@ boolean Plugin_077(byte function, const char *string)
 #endif
 
     byte buttons[] = { 0 };
-    if (!decode_manchester(buttons, 4, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+    if (!decode_manchester(buttons, BUTTONS_BITS_COUNT, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
                            AVTK_PulseMinDuration, AVTK_PulseMaxDuration,
                            2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration,
-                           0, 4, true)) {
+                           0, BUTTONS_BITS_COUNT, true)) {
 #ifdef PLUGIN_077_DEBUG
       Serial.print(F(PLUGIN_077_ID));
       Serial.println(F(": Could not decode buttons manchester data"));
@@ -317,11 +319,11 @@ boolean Plugin_077(byte function, const char *string)
     }
 
     if (hasCrc) {
-      pulseIndex -= (2 * 4);
-      if (!decode_manchester(buttons, 4, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+      pulseIndex -= (2 * BUTTONS_BITS_COUNT);
+      if (!decode_manchester(buttons, BUTTONS_BITS_COUNT, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
                             AVTK_PulseMinDuration, AVTK_PulseMaxDuration,
                             2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration,
-                            0, 4, false)) {
+                            0, BUTTONS_BITS_COUNT, false)) {
 #ifdef PLUGIN_077_DEBUG
         Serial.print(F(PLUGIN_077_ID));
         Serial.println(F(": Could not (re)decode buttons manchester data"));
