@@ -14,18 +14,6 @@
 #define AVTK_PULSE_DURATION_MIN_D 380
 #define AVTK_PULSE_DURATION_MAX_D 580
 
-uint32_t reverseBits(uint32_t value, unsigned int bitWidth) {
-    uint32_t reversed = 0;
-    for (unsigned int i = 0; i < bitWidth; ++i) {
-        reversed <<= 1;
-        if (value & 1) {
-            reversed |= 1;
-        }
-        value >>= 1;
-    }
-    return reversed;
-}
-
 bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        uint16_t const pulses[], const int pulsesCount,
                        int *pulseIndex, uint16_t shortPulseMinDuration,
@@ -52,6 +40,10 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
   for (uint8_t bitIndex = bitOffset; bitIndex < endBitCount; bitIndex++) {
     bool isLast = bitIndex + 1 == endBitCount;
     int currentFrameByteIndex = bitIndex / bitsPerByte;
+    uint8_t offset = bitIndex % bitsPerByte;
+    if (offset == 0) {
+      frame[currentFrameByteIndex] = 0;
+    }
     uint16_t bitDuration0 = pulses[*pulseIndex];
     uint16_t bitDuration1 = pulses[*pulseIndex + 1];
 
@@ -60,7 +52,6 @@ bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        shortPulseMaxDuration) &&
         value_between(bitDuration1, longPulseMinDuration,
                        isLast ? static_cast<uint16_t>(UINT16_MAX) : longPulseMaxDuration)) {
-      uint8_t offset = bitIndex % bitsPerByte;
       frame[currentFrameByteIndex] |=
           1 << (lsb ? (bitsPerByte - 1 - offset) : offset);
     } else if (!value_between(bitDuration0, longPulseMinDuration,
@@ -326,7 +317,17 @@ boolean Plugin_077(byte function, const char *string)
     }
 
     if (hasCrc) {
-        buttons[0] = reverseBits(buttons[0], 4);
+      pulseIndex -= (2 * 4);
+      if (!decode_manchester(buttons, 4, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
+                            AVTK_PulseMinDuration, AVTK_PulseMaxDuration,
+                            2 * AVTK_PulseMinDuration, 2 * AVTK_PulseMaxDuration,
+                            0, 4, false)) {
+#ifdef PLUGIN_077_DEBUG
+        Serial.print(F(PLUGIN_077_ID));
+        Serial.println(F(": Could not (re)decode buttons manchester data"));
+#endif
+        continue;
+      }
     }
 
 #ifdef PLUGIN_077_DEBUG
