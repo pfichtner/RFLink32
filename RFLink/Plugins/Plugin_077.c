@@ -15,6 +15,7 @@
 #define AVTK_PULSE_DURATION_MAX_D 580
 
 #define BUTTONS_BITS_COUNT 4
+// #define SWAP_BIT_ORDER_IF_SIGNAL_HAS_CRC
 
 bool decode_manchester(uint8_t frame[], uint8_t expectedBitCount,
                        uint16_t const pulses[], const int pulsesCount,
@@ -318,6 +319,7 @@ boolean Plugin_077(byte function, const char *string)
       hasCrc = preamblePairsFound < AVTK_SyncPairsCount;
     }
 
+#ifdef SWAP_BIT_ORDER_IF_SIGNAL_HAS_CRC
     if (hasCrc) {
       pulseIndex -= (2 * BUTTONS_BITS_COUNT);
       if (!decode_manchester(buttons, BUTTONS_BITS_COUNT, RawSignal.Pulses, RawSignal.Number, &pulseIndex,
@@ -331,6 +333,7 @@ boolean Plugin_077(byte function, const char *string)
         continue;
       }
     }
+#endif
 
 #ifdef PLUGIN_077_DEBUG
     Serial.print(F(PLUGIN_077_ID));
