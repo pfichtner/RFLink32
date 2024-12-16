@@ -212,7 +212,7 @@ boolean Plugin_077(byte function, const char *string)
       Serial.print(preamblePairsFound);
       Serial.print(F(" < "));
       Serial.print(AVTK_MinSyncPairs);
-      Serial.println(F("), pulseIndex is "));
+      Serial.print(F("), pulseIndex is "));
       Serial.println(pulseIndex);
 #endif
       continue;
@@ -415,22 +415,22 @@ boolean Plugin_077(byte function, const char *string)
 #include "../3_Serial.h"
 #include <stdlib.h>
 
-inline void send(boolean state)
+inline void sendBit(boolean state)
 {
    digitalWrite(Radio::pins::TX_DATA, state ? HIGH : LOW);
-   delayMicroseconds(AVTK_PULSE_DURATION_MID_D);
+   delayMicroseconds(AVTK_PULSE_DURATION_MID_D*RawSignal.Multiply);
 }
 
 inline void sendManchesterBit(bool bit)
 {
   if (bit) {
-    send(true);
-    send(false);
-    send(false);
+    sendBit(true);
+    sendBit(false);
+    sendBit(false);
   } else {
-    send(true);
-    send(true);
-    send(false);
+    sendBit(true);
+    sendBit(true);
+    sendBit(false);
   }
 }
 
@@ -478,22 +478,26 @@ boolean PluginTX_077(byte function, const char *string)
 #endif
 		for (u_short count = 0; count < sendTimes; count++) {
          for (u_int i = 0; i < preambleSize; i++) {
-            send(preamble[i]);
+            sendBit(preamble[i]);
          }
 
 #ifdef PLUGIN_077_DEBUG
          Serial.println(F(PLUGIN_077_ID ": Sending syncword"));
 #endif
          for (u_int i = 0; i < syncWordSize; i++) {
-            send(syncWord[i]);
+            sendBit(syncWord[i]);
          }
 
 #ifdef PLUGIN_077_DEBUG
          Serial.print(F(PLUGIN_077_ID ": Sending address "));
-         Serial.print(address);
+         Serial.println(address);
 #endif
 
       sendManchester(address);
+#ifdef PLUGIN_077_DEBUG
+         Serial.print(F(PLUGIN_077_ID ": Sending buttons "));
+         Serial.println(buttons);
+#endif
       sendManchester(buttons);
 		}
 		interrupts();
