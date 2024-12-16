@@ -90,7 +90,7 @@ u_short countPreamblePairs(const uint16_t pulses[], int *pulseIndex, size_t puls
 
     for (size_t i = 0; i < (size_t) AVTK_SyncPairsCount && *pulseIndex < (int) pulseCount - 1; i++, (*pulseIndex) += 2) {
         if (value_between(pulses[*pulseIndex], AVTK_PulseMinDuration, AVTK_PulseMaxDuration) &&
-            value_between(pulses[*pulseIndex + 1], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)) {
+            value_between(pulses[(*pulseIndex) + 1], AVTK_PulseMinDuration, AVTK_PulseMaxDuration)) {
             preamblePairsFound++;
         } else if (preamblePairsFound > 0) {
             // if we didn't already have a match, we ignore as mismatch, otherwise we break here
