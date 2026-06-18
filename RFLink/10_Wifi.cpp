@@ -56,6 +56,8 @@ namespace RFLink { namespace Wifi {
 
         bool clientParamsHaveChanged = false; // this will be set to True when Client Wifi mode configuration has changed
         bool accessPointParamsHaveChanged = false; // this will be set to True when Client Wifi mode configuration has changed
+        bool wifiClientDisconnected = false; // set by event handler when disconnect detected
+        unsigned long lastReconnectMs = 0; // for periodic reconnect backoff
         unsigned short int cpWifiChannel = 1; // channel for CaptivePortal (will be randomized later)
 
         // All json variable names
@@ -425,6 +427,11 @@ namespace RFLink { namespace Wifi {
         void eventHandler_WiFiStationLostIp(WiFiEvent_t event, WiFiEventInfo_t info) {
           Serial.println("WiFi Client has lost its IP");
         }
+
+        void eventHandler_WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
+          Serial.println(F("WiFi Client has been disconnected"));
+          wifiClientDisconnected = true;
+        }
 #endif //ESP32
 
 #ifdef ESP8266
@@ -448,6 +455,7 @@ void eventHandler_WiFiStationGotIp(const WiFiEventStationModeGotIP& evt) {
 WiFiEventHandler e3;
 void eventHandler_WiFiStationDisconnected(const WiFiEventStationModeDisconnected& evt) {
   Serial.println(F("WiFi Client has been disconnected"));
+  wifiClientDisconnected = true;
 }
 #endif
 
@@ -477,6 +485,7 @@ void eventHandler_WiFiStationDisconnected(const WiFiEventStationModeDisconnected
           WiFi.onEvent(eventHandler_WiFiStationConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED );
           WiFi.onEvent(eventHandler_WiFiStationGotIp, ARDUINO_EVENT_WIFI_STA_GOT_IP );
           WiFi.onEvent(eventHandler_WiFiStationLostIp, ARDUINO_EVENT_WIFI_STA_LOST_IP );
+          WiFi.onEvent(eventHandler_WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED );
 #else
           e1 = WiFi.onSoftAPModeStationConnected(&eventHandler_WiFiStationConnected);
           e2 = WiFi.onStationModeGotIP(&eventHandler_WiFiStationGotIp);
@@ -573,6 +582,14 @@ void eventHandler_WiFiStationDisconnected(const WiFiEventStationModeDisconnected
             resetClientWifi();
           }
 
+          if (params::client_enabled && (!WiFi.isConnected() || wifiClientDisconnected)) {
+            if (millis() - lastReconnectMs > 30000) {
+              lastReconnectMs = millis();
+              wifiClientDisconnected = false;
+              Serial.println(F("WiFi disconnected, attempting reconnect..."));
+              resetClientWifi();
+            }
+          }
 
 #if defined(RFLINK_OTA_ENABLED)
           ArduinoOTA.handle();

@@ -108,6 +108,7 @@ boolean ReadSerial() {
         FocusTimer = millis() + FOCUS_TIME_MS;
 
         while (true) {
+            yield();
             availableBytes = Serial.available();
             if (availableBytes) {
 
