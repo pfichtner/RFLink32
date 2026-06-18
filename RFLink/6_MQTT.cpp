@@ -277,6 +277,7 @@ void reconnect(int retryCount, bool force)
   {
     retryLeft--;
     lastMqttConnectionAttemptTime.tv_sec = currentTime.tv_sec;
+    delay(10);
 
     Serial.print(F("Trying to connect to MQTT Server '"));
     Serial.print(params::server.c_str());
