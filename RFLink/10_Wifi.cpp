@@ -254,11 +254,9 @@ namespace RFLink { namespace Wifi {
 
               WiFi.config(ip, gateway, mask, dns );
 
-            } else {
-              WiFi.config(IPAddress((uint32_t) 0), IPAddress((uint32_t) 0), IPAddress((uint32_t) 0));
             }
 
-            delay(500);
+            delay(10);
             if(!WiFi.isConnected() || WiFi.SSID() != params::client_ssid) {
               WiFi.begin(params::client_ssid.c_str(), params::client_password.c_str());
             }
@@ -313,16 +311,12 @@ namespace RFLink { namespace Wifi {
         {
           WiFi.disconnect();
           WiFi.mode(WIFI_OFF);
-          delay(500);
         }
 
         void setup_WIFI_OFF()
         {
           WiFi.persistent(false);
           WiFi.setAutoReconnect(false);
-#ifdef ESP8266
-          WiFi.setSleepMode(WIFI_MODEM_SLEEP);
-#endif
           WiFi.mode(WIFI_OFF);
 #ifdef ESP8266
           WiFi.forceSleepBegin();
@@ -493,9 +487,8 @@ void eventHandler_WiFiStationDisconnected(const WiFiEventStationModeDisconnected
 #endif
 
 #ifdef ESP32
-          WiFi.setTxPower(WIFI_POWER_11dBm);
+          WiFi.setTxPower(WIFI_POWER_19_5dBm);
 #elif ESP8266
-          WiFi.setSleepMode(WIFI_MODEM_SLEEP);
   WiFi.setOutputPower(WIFI_PWR.toInt());
 #endif // ESP
 
